@@ -2,6 +2,7 @@ export type Category =
   | 'all'
   | 'clothes'
   | 'shoes & accessories'
+  | 'body & skin'
   | 'home & living'
   | 'tools & tech'
   | 'curios';
@@ -10,6 +11,7 @@ export const CATEGORIES: Category[] = [
   'all',
   'clothes',
   'shoes & accessories',
+  'body & skin',
   'home & living',
   'tools & tech',
   'curios',

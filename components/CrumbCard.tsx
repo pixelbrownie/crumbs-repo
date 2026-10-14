@@ -13,6 +13,7 @@ interface CrumbCardProps {
 const CATEGORY_COLORS: Record<string, string> = {
   clothes: 'bg-rose-100/90 text-rose-700 border-rose-200/50',
   'shoes & accessories': 'bg-amber-100/90 text-amber-700 border-amber-200/50',
+  'body & skin': 'bg-pink-100/90 text-pink-700 border-pink-200/50',
   'home & living': 'bg-emerald-100/90 text-emerald-700 border-emerald-200/50',
   'tools & tech': 'bg-blue-100/90 text-blue-700 border-blue-200/50',
   curios: 'bg-purple-100/90 text-purple-700 border-purple-200/50',

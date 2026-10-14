@@ -23,6 +23,7 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'thinking' | 'done'>('idle');
+  const [selectedCategory, setSelectedCategory] = useState<string>('auto');
   const [error, setError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -46,6 +47,7 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
       setImagePreview('');
       setProductUrl('');
       setTitle('');
+      setSelectedCategory('auto');
       setError('');
       setAiStatus('idle');
     }, 300);
@@ -130,27 +132,33 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
         imageBase64 = imagePreview;
       }
 
-      // 2. AI categorization
-      setAiStatus('thinking');
-      const catRes = await fetch('/api/categorize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageUrl: inputMode === 'url' ? finalImageUrl : undefined,
-          imageBase64: imageBase64,
-          title: title.trim() || undefined,
-          productUrl: productUrl.trim(),
-        }),
-      });
-      const catResult = await catRes.json();
-      if (!catRes.ok) {
-        throw new Error(catResult.error ?? 'Could not categorize this item.');
+      // 2. Determine category
+      let finalCategory: string;
+      if (selectedCategory && selectedCategory !== 'auto') {
+        finalCategory = selectedCategory;
+      } else {
+        setAiStatus('thinking');
+        const catRes = await fetch('/api/categorize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageUrl: inputMode === 'url' ? finalImageUrl : undefined,
+            imageBase64: imageBase64,
+            title: title.trim() || undefined,
+            productUrl: productUrl.trim(),
+          }),
+        });
+        const catResult = await catRes.json();
+        if (!catRes.ok) {
+          throw new Error(catResult.error ?? 'Could not categorize this item.');
+        }
+        const { category } = catResult as { category?: string };
+        if (typeof category !== 'string') {
+          throw new Error('Could not categorize this item.');
+        }
+        finalCategory = category;
+        setAiStatus('done');
       }
-      const { category } = catResult as { category?: string };
-      if (typeof category !== 'string') {
-        throw new Error('Could not categorize this item.');
-      }
-      setAiStatus('done');
 
       // 3. Save crumb
       const saveRes = await fetch('/api/crumbs', {
@@ -159,7 +167,7 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
         body: JSON.stringify({
           image_url: finalImageUrl,
           product_url: productUrl.trim(),
-          category,
+          category: finalCategory,
           title: title.trim() || null,
         }),
       });
@@ -373,6 +381,30 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
                       maxLength={100}
                       className="w-full px-3.5 py-2.5 text-sm bg-surface border border-border rounded-xl text-ink placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-ink/20 focus:border-ink/30 transition-all"
                     />
+                  </div>
+
+                  {/* Category selection */}
+                  <div>
+                    <label className="text-xs font-medium text-ink-light mb-1.5 flex items-center justify-between">
+                      <span>category</span>
+                      <span className="text-[11px] text-muted font-normal">
+                        {selectedCategory === 'auto' ? '✨ AI auto-sort' : 'manual'}
+                      </span>
+                    </label>
+                    <select
+                      id="category-select"
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full px-3 py-2.5 text-xs bg-surface border border-border rounded-xl text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 focus:border-ink/30 transition-all cursor-pointer"
+                    >
+                      <option value="auto">✨ AI Auto-sort (recommended)</option>
+                      <option value="clothes">clothes (dresses, tops, jackets, pants)</option>
+                      <option value="shoes & accessories">shoes & accessories (bags, shoes, jewelry)</option>
+                      <option value="body & skin">body & skin (skincare, makeup, perfume)</option>
+                      <option value="home & living">home & living (decor, candles, furniture)</option>
+                      <option value="tools & tech">tools & tech (gadgets, audio, desk)</option>
+                      <option value="curios">curios (art, books, unique finds)</option>
+                    </select>
                   </div>
 
                   {/* Error */}
