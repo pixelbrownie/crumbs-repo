@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+/* ── Tailwind v4 theme tokens ──────────────────────────────────────────────── */
+@theme {
+  /* Colors */
+  --color-canvas: #faf9f7;
+  --color-surface: #f2f0ec;
+  --color-surface-hover: #eceae4;
+  --color-border: #e2dfd8;
+  --color-muted: #9c978f;
+  --color-ink: #1c1a17;
+  --color-ink-light: #4a4742;
+  --color-accent: #c8a97e;
+  --color-accent-dark: #a8844f;
+
+  /* Fonts */
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+
+  /* Border radius */
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+
+  /* Shadows */
+  --shadow-soft: 0 2px 16px 0 rgb(28 26 23 / 0.06);
+  --shadow-card: 0 4px 24px 0 rgb(28 26 23 / 0.08);
+  --shadow-modal: 0 24px 64px 0 rgb(28 26 23 / 0.16);
+
+  /* Animations */
+  --animate-fade-in: fadeIn 0.3s ease-out;
+  --animate-fade-up: fadeUp 0.4s ease-out;
+  --animate-scale-in: scaleIn 0.2s ease-out;
+  --animate-shimmer: shimmer 1.5s infinite;
+
+  /* Keyframes */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to   { background-position:  200% 0; }
+  }
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────────── */
+html {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-canvas);
+  min-height: 100dvh;
+}
+
+/* ── Masonry column reset ────────────────────────────────────────────────────── */
+.my-masonry-grid {
+  display: flex;
+  width: auto;
+}
+
+.my-masonry-grid_column > div {
+  margin-bottom: 12px;
+}
+
+@media (min-width: 640px) {
+  .my-masonry-grid_column > div {
+    margin-bottom: 16px;
+  }
+}
+
+/* ── Scrollbar hide utility ─────────────────────────────────────────────────── */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Focus ring ─────────────────────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Selection ──────────────────────────────────────────────────────────────── */
+::selection {
+  background: rgb(200 169 126 / 0.25);
+  color: var(--color-ink);
+}
