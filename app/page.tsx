@@ -96,12 +96,12 @@ export default function DashboardPage() {
 
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {Array.from({ length: 10 }).map((_, i) => (
+          <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-3 sm:gap-4 column-fill-balance w-full">
+            {Array.from({ length: 12 }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-2xl bg-surface animate-pulse"
-                style={{ height: `${[180, 240, 200, 280, 160, 220, 260, 190, 300, 210][i]}px` }}
+                className="rounded-2xl bg-surface animate-pulse mb-3 sm:mb-4 inline-block w-full break-inside-avoid"
+                style={{ height: `${[220, 310, 260, 380, 190, 290, 340, 240, 400, 270, 320, 230][i]}px` }}
               />
             ))}
           </div>

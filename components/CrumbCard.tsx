@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { ExternalLink, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Crumb } from '@/types/crumb';
@@ -12,11 +11,11 @@ interface CrumbCardProps {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  clothes: 'bg-rose-100/80 text-rose-700',
-  'shoes & accessories': 'bg-amber-100/80 text-amber-700',
-  'home & living': 'bg-emerald-100/80 text-emerald-700',
-  'tools & tech': 'bg-blue-100/80 text-blue-700',
-  curios: 'bg-purple-100/80 text-purple-700',
+  clothes: 'bg-rose-100/90 text-rose-700 border-rose-200/50',
+  'shoes & accessories': 'bg-amber-100/90 text-amber-700 border-amber-200/50',
+  'home & living': 'bg-emerald-100/90 text-emerald-700 border-emerald-200/50',
+  'tools & tech': 'bg-blue-100/90 text-blue-700 border-blue-200/50',
+  curios: 'bg-purple-100/90 text-purple-700 border-purple-200/50',
 };
 
 export default function CrumbCard({ crumb, onDelete }: CrumbCardProps) {
@@ -25,7 +24,7 @@ export default function CrumbCard({ crumb, onDelete }: CrumbCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const categoryColor =
-    CATEGORY_COLORS[crumb.category] ?? 'bg-zinc-100/80 text-zinc-700';
+    CATEGORY_COLORS[crumb.category] ?? 'bg-zinc-100/90 text-zinc-700 border-zinc-200/50';
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -49,7 +48,7 @@ export default function CrumbCard({ crumb, onDelete }: CrumbCardProps) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.94 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="relative mb-3 sm:mb-4 break-inside-avoid"
+      className="relative mb-3 sm:mb-4 inline-block w-full break-inside-avoid [break-inside:avoid] [-webkit-column-break-inside:avoid] transform-gpu"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onFocusCapture={() => setIsHovered(true)}
@@ -67,26 +66,31 @@ export default function CrumbCard({ crumb, onDelete }: CrumbCardProps) {
         target="_blank"
         rel="noopener noreferrer"
         id={`crumb-${crumb.id}`}
-        className="block group cursor-pointer"
+        className="block group cursor-pointer w-full select-none"
         title={crumb.title ?? crumb.category}
       >
-        <div className="relative overflow-hidden rounded-2xl bg-surface shadow-soft">
+        <div className="relative overflow-hidden rounded-2xl bg-surface border border-border/50 shadow-soft transition-all duration-300 group-hover:shadow-card">
           {/* Image */}
           {imgError ? (
-            <div className="w-full h-48 flex items-center justify-center bg-surface-hover text-muted text-xs">
+            <div className="w-full h-44 flex items-center justify-center bg-surface-hover text-muted text-xs">
               image unavailable
             </div>
           ) : (
-            <div className="relative w-full">
-              <Image
+            <div className="relative w-full overflow-hidden bg-surface">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={crumb.image_url}
                 alt={crumb.title ?? `${crumb.category} item`}
-                width={600}
-                height={900}
-                className="w-full h-auto object-cover rounded-2xl"
+                loading="lazy"
+                decoding="async"
                 onError={() => setImgError(true)}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                unoptimized={crumb.image_url.startsWith('http')}
+                className="w-full h-auto block object-cover rounded-2xl max-h-[75vh] transition-transform duration-300 ease-out group-hover:scale-[1.015]"
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                  maxWidth: '100%',
+                }}
               />
             </div>
           )}
@@ -95,14 +99,14 @@ export default function CrumbCard({ crumb, onDelete }: CrumbCardProps) {
           <motion.div
             animate={{ opacity: isHovered ? 1 : 0 }}
             transition={{ duration: 0.18 }}
-            className="absolute inset-0 bg-ink/30 rounded-2xl pointer-events-none"
+            className="absolute inset-0 bg-ink/25 backdrop-blur-[0.5px] rounded-2xl pointer-events-none"
           />
 
           {/* External link icon — top right */}
           <motion.div
             animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 4 }}
             transition={{ duration: 0.18 }}
-            className="absolute top-3 right-3 p-1.5 bg-canvas/90 backdrop-blur-sm rounded-lg shadow-soft"
+            className="absolute top-2.5 right-2.5 p-1.5 bg-canvas/95 backdrop-blur-md rounded-xl shadow-soft border border-border/40"
           >
             <ExternalLink className="w-3.5 h-3.5 text-ink" />
           </motion.div>
@@ -110,28 +114,28 @@ export default function CrumbCard({ crumb, onDelete }: CrumbCardProps) {
           {/* Category pill — bottom left */}
           <motion.div
             animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 4 }}
-            transition={{ duration: 0.18, delay: 0.04 }}
-            className="absolute bottom-3 left-3"
+            transition={{ duration: 0.18, delay: 0.03 }}
+            className="absolute bottom-2.5 left-2.5"
           >
             <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm ${categoryColor}`}
+              className={`text-[11px] font-medium tracking-tight px-2.5 py-1 rounded-full backdrop-blur-md border shadow-soft ${categoryColor}`}
             >
               {crumb.category}
             </span>
           </motion.div>
-
         </div>
       </a>
+
       {onDelete && (
         <motion.button
           animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 4 }}
-          transition={{ duration: 0.18, delay: 0.06 }}
+          transition={{ duration: 0.18, delay: 0.05 }}
           onClick={handleDelete}
           disabled={isDeleting}
           id={`delete-${crumb.id}`}
           title="Remove crumb"
           aria-label="Remove crumb"
-          className="absolute bottom-3 right-3 p-1.5 bg-canvas/90 backdrop-blur-sm rounded-lg shadow-soft hover:bg-rose-50 transition-colors duration-150"
+          className="absolute bottom-2.5 right-2.5 p-1.5 bg-canvas/95 backdrop-blur-md rounded-xl shadow-soft border border-border/40 hover:bg-rose-50 hover:border-rose-200 transition-colors duration-150 z-10"
         >
           <Trash2 className={`w-3.5 h-3.5 ${isDeleting ? 'text-muted' : 'text-rose-500'}`} />
         </motion.button>
