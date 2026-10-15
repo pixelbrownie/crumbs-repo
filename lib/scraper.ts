@@ -87,16 +87,19 @@ export async function scrapeProductPage(
     let res: Response | null = null;
     let redirectCount = 0;
 
-    // Follow redirects safely without crashing on app scheme intents
-    while (redirectCount < 4) {
-      redirectCount++;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9000);
+    const isSocialMedia =
+      parsedUrl.hostname.includes('instagram.com') ||
+      parsedUrl.hostname.includes('threads.net') ||
+      parsedUrl.hostname.includes('tiktok.com');
 
-      const response: Response = await fetch(fetchUrl, {
-        signal: controller.signal,
-        redirect: 'manual',
-        headers: {
+    const requestHeaders: Record<string, string> = isSocialMedia
+      ? {
+          'User-Agent':
+            'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
+      : {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           Accept:
@@ -110,7 +113,18 @@ export async function scrapeProductPage(
           'Sec-Fetch-Site': 'none',
           'Sec-Fetch-User': '?1',
           'Upgrade-Insecure-Requests': '1',
-        },
+        };
+
+    // Follow redirects safely without crashing on app scheme intents
+    while (redirectCount < 4) {
+      redirectCount++;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
+
+      const response: Response = await fetch(fetchUrl, {
+        signal: controller.signal,
+        redirect: 'manual',
+        headers: requestHeaders,
       });
 
       clearTimeout(timeout);
@@ -171,7 +185,7 @@ export async function scrapeProductPage(
     // Helper to collect images safely
     const addImage = (src?: string | null) => {
       if (!src) return;
-      const clean = src.trim();
+      const clean = src.replace(/&amp;/g, '&').trim();
       if (clean && !imageCandidates.includes(clean)) {
         imageCandidates.push(clean);
       }
@@ -339,7 +353,33 @@ export async function scrapeProductPage(
     }
 
     // 5. Clean Title (strip site suffixes like " | Myntra", " - Buy Online at Zara")
-    if (title) {
+    if (parsedUrl.hostname.includes('instagram.com') && title) {
+      if (title.includes('on Instagram:')) {
+        const parts = title.split(/on Instagram:\s*/i);
+        if (!brand || brand.toLowerCase() === 'instagram') {
+          brand = parts[0]
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&#39;/g, "'")
+            .replace(/&#064;/g, '@')
+            .trim();
+        }
+        const rawCaption = parts[1] || '';
+        let cleanCaption = rawCaption
+          .replace(/^["“&quot;]+/, '')
+          .replace(/["”&quot;]+$/, '')
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&')
+          .replace(/&#39;/g, "'")
+          .trim();
+        
+        // Strip trailing hashtag block
+        cleanCaption = cleanCaption.replace(/(\s*#[\w.-]+)+$/g, '').trim();
+        // Use first non-empty line as product title if multiline
+        const firstLine = cleanCaption.split('\n').map((l) => l.trim()).filter(Boolean)[0];
+        title = firstLine || cleanCaption;
+      }
+    } else if (title) {
       title = title
         .replace(/\s*([|•–—-])\s*(Myntra|Zara|Amazon|Flipkart|Ajio|ASOS|SSENSE|Nykaa|H&M|Uniqlo|Urbanic).*$/i, '')
         .trim();
