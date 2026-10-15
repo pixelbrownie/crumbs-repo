@@ -120,6 +120,26 @@
       background: rgba(38, 37, 35, 0.04);
       color: #262523;
     }
+    .btn-snip {
+      width: 100%;
+      background: #faf8f5;
+      color: #262523;
+      border: 1.5px dashed rgba(38, 37, 35, 0.35);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-snip:hover {
+      background: rgba(38, 37, 35, 0.06);
+      border-color: #262523;
+    }
     /* Grid candidates */
     .section-label {
       font-size: 11px;
@@ -253,6 +273,16 @@
     <div>
       <div class="section-label">Select image</div>
       <div id="candidate-grid" class="candidate-grid"></div>
+    </div>
+
+    <div>
+      <button id="btn-snip" class="btn-snip" type="button">
+        <span>⛶</span>
+        <span>Drag &amp; snip area on screen</span>
+      </button>
+      <div style="font-size: 10px; color: #736f68; text-align: center; margin-top: 4px;">
+        draw a rectangle over any product or photo
+      </div>
     </div>
 
     <div class="input-group">

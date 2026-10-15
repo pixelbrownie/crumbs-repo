@@ -16,6 +16,25 @@ export async function downloadImageWithReferer(
   imageUrl: string,
   refererUrl?: string
 ): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  // Support direct base64 data URIs (e.g. from screen snips & rectangle crops)
+  if (imageUrl.startsWith('data:image/')) {
+    try {
+      const commaIdx = imageUrl.indexOf(',');
+      if (commaIdx > -1) {
+        const meta = imageUrl.slice(0, commaIdx);
+        const mimeType = meta.split(';')[0].replace('data:', '') || 'image/png';
+        const base64Data = imageUrl.slice(commaIdx + 1);
+        const buffer = Buffer.from(base64Data, 'base64');
+        if (buffer.length > 50) {
+          return { buffer, mimeType };
+        }
+      }
+    } catch (e) {
+      console.warn('[imageProcessor] Failed to parse data URI:', e);
+      return null;
+    }
+  }
+
   if (!isSafePublicUrl(imageUrl)) {
     return null;
   }

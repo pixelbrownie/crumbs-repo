@@ -35,8 +35,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://crumbsbypixel.vercel.app/*",
-        "http://localhost:3000/*"
+        "http://*/*",
+        "https://*/*"
       ],
       "js": ["content.js"],
       "run_at": "document_start"
@@ -53,6 +53,13 @@
         "mac": "MacCtrl+Shift+S"
       },
       "description": "Quick-save active product to crumbs"
+    },
+    "snip-crumbs": {
+      "suggested_key": {
+        "default": "Alt+Shift+X",
+        "mac": "MacCtrl+Shift+X"
+      },
+      "description": "Drag rectangle to capture any piece on screen"
     }
   }
 }

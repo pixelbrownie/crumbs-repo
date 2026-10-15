@@ -21,6 +21,12 @@ chrome.runtime.onInstalled.addListener(() => {
     title: 'Save link to crumbs',
     contexts: ['link'],
   });
+
+  chrome.contextMenus.create({
+    id: 'crumbs-snip-area',
+    title: '⛶ Snip rectangle on screen',
+    contexts: ['page', 'image'],
+  });
 });
 
 // Flash badge text to give tactile confirmation
@@ -52,7 +58,6 @@ async function capturePiece({
 
   if (!token) {
     setBadge('!', '#e11d48', 3500);
-    // Open connect page to prompt authentication
     chrome.tabs.create({ url: `${apiUrl}/connect` });
     return { error: 'Not authenticated. Please connect your crumbs account.' };
   }
@@ -88,11 +93,33 @@ async function capturePiece({
   }
 }
 
+// Start interactive area snip on target tab
+async function startAreaSnip(tab?: chrome.tabs.Tab) {
+  let targetTab = tab;
+  if (!targetTab || !targetTab.id) {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    targetTab = activeTab;
+  }
+  if (!targetTab?.id) return;
+
+  try {
+    const screenshotUrl = await chrome.tabs.captureVisibleTab(targetTab.windowId, { format: 'png' });
+    chrome.tabs.sendMessage(targetTab.id, {
+      type: 'LAUNCH_SNIP_OVERLAY',
+      screenshotUrl,
+    });
+  } catch (err) {
+    console.error('[crumbs] Failed to start area snip:', err);
+  }
+}
+
 // Handle context menus
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab || !tab.id) return;
 
-  if (info.menuItemId === 'crumbs-save-image' && info.srcUrl) {
+  if (info.menuItemId === 'crumbs-snip-area') {
+    await startAreaSnip(tab);
+  } else if (info.menuItemId === 'crumbs-save-image' && info.srcUrl) {
     await capturePiece({
       productUrl: tab.url || info.pageUrl || '',
       pageTitle: tab.title,
@@ -105,11 +132,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       pageTitle: undefined,
     });
   } else if (info.menuItemId === 'crumbs-save-page' && tab.url) {
-    // Query content script for images
     try {
       chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PAGE_DATA' }, async (response) => {
         if (chrome.runtime.lastError || !response) {
-          // Fallback to simple URL capture
           await capturePiece({
             productUrl: tab.url!,
             pageTitle: tab.title,
@@ -132,9 +157,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-// Handle keyboard command (Alt+Shift+S)
+// Handle keyboard commands (Alt+Shift+S for page, Alt+Shift+X for snip)
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command === 'save-to-crumbs') {
+  if (command === 'snip-crumbs') {
+    await startAreaSnip();
+  } else if (command === 'save-to-crumbs') {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id || !tab.url) return;
 
@@ -163,10 +190,13 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
-// Relay capture requests from popup if required
+// Relay capture requests from popup / content
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'CAPTURE_PIECE') {
     capturePiece(message.payload).then(sendResponse);
-    return true; // async sendResponse
+    return true;
+  } else if (message.type === 'TRIGGER_SNIP_ON_ACTIVE_TAB') {
+    startAreaSnip().then(() => sendResponse({ ok: true }));
+    return true;
   }
 });

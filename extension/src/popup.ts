@@ -40,6 +40,12 @@ async function init() {
     chrome.runtime.openOptionsPage();
   });
 
+  const btnSnip = document.getElementById('btn-snip') as HTMLButtonElement | null;
+  btnSnip?.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'TRIGGER_SNIP_ON_ACTIVE_TAB' });
+    window.close();
+  });
+
   btnConnect.addEventListener('click', () => {
     chrome.tabs.create({ url: `${apiUrl}/connect?ext_id=${chrome.runtime.id}` });
     window.close();

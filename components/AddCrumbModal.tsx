@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Upload, Link2, Plus, Loader2, ImageIcon } from 'lucide-react';
+import { X, Upload, Link2, Plus, Loader2, ImageIcon, Crop } from 'lucide-react';
 import Image from 'next/image';
 import type { Crumb } from '@/types/crumb';
+import ImageRectangleCropper from './ImageRectangleCropper';
 
 interface AddCrumbModalProps {
   onAdd: (crumb: Crumb) => void;
@@ -24,6 +25,7 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiStatus, setAiStatus] = useState<'idle' | 'thinking' | 'done'>('idle');
   const [selectedCategory, setSelectedCategory] = useState<string>('auto');
+  const [isCropping, setIsCropping] = useState(false);
   const [error, setError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -113,23 +115,31 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
     setIsSubmitting(true);
 
     try {
-      // 1. Upload image if file mode
+      // 1. Upload image if file mode or cropped data URI
       let finalImageUrl = imageUrl.trim();
       let imageBase64: string | undefined;
 
-      if (inputMode === 'file' && imageFile) {
-        const formData = new FormData();
-        formData.append('file', imageFile);
-        const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-        if (!uploadRes.ok) {
-          const err = await uploadRes.json();
-          throw new Error(err.error ?? 'Upload failed');
-        }
-        const { path } = await uploadRes.json() as { path: string };
-        finalImageUrl = path;
+      if (imagePreview.startsWith('data:') || (inputMode === 'file' && imageFile)) {
+        let fileToUpload = imageFile;
 
-        // Also get base64 for AI
-        imageBase64 = imagePreview;
+        if (imagePreview.startsWith('data:')) {
+          const res = await fetch(imagePreview);
+          const blob = await res.blob();
+          fileToUpload = new File([blob], 'piece.png', { type: 'image/png' });
+        }
+
+        if (fileToUpload) {
+          const formData = new FormData();
+          formData.append('file', fileToUpload);
+          const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+          if (!uploadRes.ok) {
+            const err = await uploadRes.json();
+            throw new Error(err.error ?? 'Upload failed');
+          }
+          const { path } = await uploadRes.json() as { path: string };
+          finalImageUrl = path;
+          imageBase64 = imagePreview;
+        }
       }
 
       // 2. Determine category
@@ -324,29 +334,56 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
                       </div>
                     )}
 
-                    {/* Preview */}
+                    {/* Preview or Cropper */}
                     {imagePreview && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         className="mt-3 relative"
                       >
-                        <div className="relative h-36 rounded-xl overflow-hidden bg-surface">
-                          <Image
-                            src={imagePreview}
-                            alt="Preview"
-                            fill
-                            className="object-cover"
-                            unoptimized
+                        {isCropping ? (
+                          <ImageRectangleCropper
+                            imageSrc={imagePreview}
+                            onCrop={(croppedDataUrl) => {
+                              setImagePreview(croppedDataUrl);
+                              setIsCropping(false);
+                            }}
+                            onCancel={() => setIsCropping(false)}
                           />
-                          <button
-                            type="button"
-                            onClick={() => { setImagePreview(''); setImageFile(null); setImageUrl(''); }}
-                            className="absolute top-2 right-2 p-1 bg-ink/60 rounded-full"
-                          >
-                            <X className="w-3 h-3 text-canvas" />
-                          </button>
-                        </div>
+                        ) : (
+                          <div className="relative h-40 rounded-xl overflow-hidden bg-surface border border-border/70">
+                            <Image
+                              src={imagePreview}
+                              alt="Preview"
+                              fill
+                              className="object-contain"
+                              unoptimized
+                            />
+                            <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setIsCropping(true)}
+                                className="px-2.5 py-1 bg-ink/80 hover:bg-ink text-paper rounded-lg text-xs font-medium backdrop-blur-md flex items-center gap-1 shadow-soft transition-colors"
+                                title="Drag rectangle to crop"
+                              >
+                                <Crop className="w-3 h-3" />
+                                <span>Crop piece</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setImagePreview('');
+                                  setImageFile(null);
+                                  setImageUrl('');
+                                  setIsCropping(false);
+                                }}
+                                className="p-1.5 bg-ink/70 hover:bg-ink text-paper rounded-lg transition-colors"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </div>
