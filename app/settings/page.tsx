@@ -19,6 +19,10 @@ import {
   User as UserIcon,
   Camera,
   Loader2,
+  Share2,
+  Globe,
+  Lock,
+  AtSign,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -33,7 +37,11 @@ export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [displayName, setDisplayName] = useState('');
-  const [savingName, setSavingName] = useState(false);
+  const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
+  const [isPublic, setIsPublic] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [copiedProfileLink, setCopiedProfileLink] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -60,7 +68,34 @@ export default function SettingsPage() {
           user.email?.split('@')[0] ||
           '';
         setDisplayName(name);
+
+        const initialUname = (
+          user.user_metadata?.username ||
+          user.user_metadata?.display_name ||
+          user.email?.split('@')[0] ||
+          'user'
+        )
+          .toLowerCase()
+          .replace(/^@+/, '')
+          .replace(/[^a-z0-9_.-]/g, '');
+        setUsername(initialUname);
+        setBio(user.user_metadata?.bio || '');
+        setIsPublic(user.user_metadata?.is_public !== false);
+
         loadTokens();
+
+        // Fetch full profile if exists
+        fetch('/api/profile')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.profile) {
+              if (data.profile.username) setUsername(data.profile.username);
+              if (data.profile.display_name) setDisplayName(data.profile.display_name);
+              if (data.profile.bio !== undefined) setBio(data.profile.bio || '');
+              if (data.profile.is_public !== undefined) setIsPublic(data.profile.is_public !== false);
+            }
+          })
+          .catch(() => {});
 
         // Self-heal any user account with an oversized data-URI in user_metadata
         if (user.user_metadata?.avatar_url?.startsWith('data:')) {
@@ -89,33 +124,51 @@ export default function SettingsPage() {
     }
   };
 
-  const handleUpdateDisplayName = async (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!displayName.trim()) return;
+    const cleanUname = username.trim().toLowerCase().replace(/^@+/, '');
+    if (!cleanUname || !displayName.trim()) {
+      setProfileError('Please provide both a username and display name.');
+      return;
+    }
 
-    setSavingName(true);
+    setSavingProfile(true);
     setProfileSuccess(null);
     setProfileError(null);
 
     try {
-      const clean = displayName.trim();
-      const { data, error } = await supabase.auth.updateUser({
-        data: {
-          display_name: clean,
-          full_name: clean,
-        },
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: cleanUname,
+          display_name: displayName.trim(),
+          bio: bio.trim(),
+          is_public: isPublic,
+        }),
       });
 
-      if (error) throw error;
-      if (data.user) {
-        setUser(data.user);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update profile');
       }
-      setProfileSuccess('Display name updated successfully.');
+
+      if (data.profile) {
+        setUsername(data.profile.username);
+        setDisplayName(data.profile.display_name);
+        setBio(data.profile.bio || '');
+        setIsPublic(data.profile.is_public !== false);
+      }
+
+      const { data: updatedAuth } = await supabase.auth.getUser();
+      if (updatedAuth?.user) setUser(updatedAuth.user);
+
+      setProfileSuccess('Profile & handle updated successfully.');
       setTimeout(() => setProfileSuccess(null), 3500);
     } catch (err) {
-      setProfileError(err instanceof Error ? err.message : 'Failed to update name');
+      setProfileError(err instanceof Error ? err.message : 'Failed to update profile');
     } finally {
-      setSavingName(false);
+      setSavingProfile(false);
     }
   };
 
@@ -132,14 +185,15 @@ export default function SettingsPage() {
     setProfileSuccess(null);
     setProfileError(null);
 
-    // Read and compress image to 256x256 square crop
+    // Read and compress image to 180x180 square crop with 0.78 quality
+    // Keeps avatar ultra-lightweight (< 20KB) so it never bloats bandwidth or page layout
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.onload = async () => {
         try {
           const canvas = document.createElement('canvas');
-          const size = 256;
+          const size = 180;
           canvas.width = size;
           canvas.height = size;
           const ctx = canvas.getContext('2d');
@@ -181,7 +235,7 @@ export default function SettingsPage() {
             } finally {
               setUploadingAvatar(false);
             }
-          }, 'image/jpeg', 0.85);
+          }, 'image/jpeg', 0.78);
         } catch (err) {
           setProfileError(err instanceof Error ? err.message : 'Failed to update photo');
           setUploadingAvatar(false);
@@ -295,21 +349,69 @@ export default function SettingsPage() {
               </p>
             </div>
 
+            {/* Public Profile Link Bar */}
+            <div className="p-4 bg-canvas/80 border border-border/70 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted flex items-center gap-1.5 mb-0.5">
+                  <Globe className="w-3 h-3 text-ink-light" />
+                  your public profile link
+                </span>
+                <p className="text-xs font-mono font-medium text-ink truncate select-all">
+                  https://crumbsbypixel.vercel.app/{username || 'username'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 flex-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`https://crumbsbypixel.vercel.app/${username}`);
+                    setCopiedProfileLink(true);
+                    setTimeout(() => setCopiedProfileLink(false), 2000);
+                  }}
+                  className="px-3 py-1.5 bg-surface hover:bg-surface-hover border border-border rounded-full text-xs font-medium text-ink transition-colors flex items-center gap-1.5 shadow-soft cursor-pointer"
+                >
+                  {copiedProfileLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-muted" />
+                      <span>copy link</span>
+                    </>
+                  )}
+                </button>
+
+                <Link
+                  href={`/${username}`}
+                  target="_blank"
+                  className="p-1.5 bg-surface hover:bg-surface-hover border border-border rounded-full text-muted hover:text-ink transition-colors"
+                  title="View profile"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
             {/* Profile Picture */}
             <div className="flex items-center gap-5 pt-1">
-              <div className="relative group">
-                {avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={avatarUrl}
-                    alt={displayName}
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border border-border shadow-soft"
-                  />
-                ) : (
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-ink text-canvas flex items-center justify-center font-semibold text-lg sm:text-xl shadow-soft">
-                    {initials}
-                  </div>
-                )}
+              <div className="relative group shrink-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden shrink-0 border border-border shadow-soft bg-surface flex items-center justify-center aspect-square">
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-semibold text-lg sm:text-xl text-ink">
+                      {initials}
+                    </span>
+                  )}
+                </div>
 
                 <button
                   type="button"
@@ -340,7 +442,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingAvatar}
-                    className="px-3 py-1.5 bg-ink text-canvas text-xs font-medium rounded-full hover:bg-ink-light transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 bg-ink text-white text-xs font-medium rounded-full hover:bg-ink-light transition-colors disabled:opacity-50"
                   >
                     change photo
                   </button>
@@ -357,39 +459,110 @@ export default function SettingsPage() {
                   )}
                 </div>
                 <p className="text-[11px] text-muted">
-                  JPEG, PNG, or WebP. Auto-centered square crop.
+                  JPEG, PNG, or WebP. Automatically resized and optimized.
                 </p>
               </div>
             </div>
 
-            {/* Display Name Form */}
-            <form onSubmit={handleUpdateDisplayName} className="space-y-4 pt-2 border-t border-border/60">
+            {/* Profile Form */}
+            <form onSubmit={handleSaveProfile} className="space-y-4 pt-2 border-t border-border/60">
+              {/* Username Field */}
+              <div>
+                <label className="text-xs font-medium text-ink block mb-1.5">
+                  username handle
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs text-muted font-mono select-none">@</span>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) =>
+                      setUsername(
+                        e.target.value
+                          .toLowerCase()
+                          .replace(/^@+/, '')
+                          .replace(/[^a-z0-9_.-]/g, '')
+                          .slice(0, 30)
+                      )
+                    }
+                    placeholder="username (e.g. ananya)"
+                    maxLength={30}
+                    required
+                    className="w-full pl-7 pr-3.5 py-2 text-xs font-mono bg-canvas border border-border rounded-xl text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                  />
+                </div>
+                <p className="text-[11px] text-muted mt-1">
+                  Letters, numbers, dots, dashes, and underscores only.
+                </p>
+              </div>
+
+              {/* Display Name Field */}
               <div>
                 <label className="text-xs font-medium text-ink block mb-1.5">
                   display name
                 </label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="your name (e.g. ananya)"
-                    maxLength={50}
-                    required
-                    className="flex-1 px-3.5 py-2 text-xs bg-canvas border border-border rounded-xl text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
-                  />
-                  <button
-                    type="submit"
-                    disabled={savingName || !displayName.trim()}
-                    className="px-4 py-2 bg-ink text-canvas text-xs font-medium rounded-xl hover:bg-ink-light transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-                  >
-                    {savingName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                    <span>save name</span>
-                  </button>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="your name (e.g. Ananya)"
+                  maxLength={50}
+                  required
+                  className="w-full px-3.5 py-2 text-xs bg-canvas border border-border rounded-xl text-ink focus:outline-none focus:ring-1 focus:ring-ink/20"
+                />
+              </div>
+
+              {/* Bio Field */}
+              <div>
+                <label className="text-xs font-medium text-ink block mb-1.5">
+                  bio <span className="text-muted font-normal">(optional)</span>
+                </label>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value.slice(0, 160))}
+                  placeholder="a brief note about your style or curated pieces..."
+                  rows={2}
+                  maxLength={160}
+                  className="w-full px-3.5 py-2 text-xs bg-canvas border border-border rounded-xl text-ink focus:outline-none focus:ring-1 focus:ring-ink/20 resize-none"
+                />
+                <div className="flex justify-end text-[10px] text-muted mt-0.5">
+                  {bio.length}/160
                 </div>
-                <p className="text-[11px] text-muted mt-1">
-                  This is the only name shown on your boards. Your email remains private.
-                </p>
+              </div>
+
+              {/* Display Crumbs Publicly Toggle */}
+              <div className="p-3.5 bg-canvas/60 border border-border/80 rounded-2xl flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-ink">
+                      display saved pieces publicly
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted mt-0.5 leading-relaxed">
+                    When enabled, anyone visiting your profile link can view your saved pieces.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-none">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-ink"></div>
+                </label>
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-1 flex items-center justify-end">
+                <button
+                  type="submit"
+                  disabled={savingProfile || !displayName.trim() || !username.trim()}
+                  className="px-5 py-2.5 bg-ink text-white text-xs font-semibold rounded-xl hover:bg-ink-light transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-soft cursor-pointer"
+                >
+                  {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  <span>save profile changes</span>
+                </button>
               </div>
 
               {/* Account Email (Read-Only) */}

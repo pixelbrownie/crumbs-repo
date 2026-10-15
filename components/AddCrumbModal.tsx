@@ -378,7 +378,7 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
                               <button
                                 type="button"
                                 onClick={() => setIsCropping(true)}
-                                className="px-2.5 py-1 bg-ink/80 hover:bg-ink text-paper rounded-lg text-xs font-medium backdrop-blur-md flex items-center gap-1 shadow-soft transition-colors"
+                                className="px-2.5 py-1 bg-ink/80 hover:bg-ink text-white rounded-lg text-xs font-medium backdrop-blur-md flex items-center gap-1 shadow-soft transition-colors"
                                 title="Drag rectangle to crop"
                               >
                                 <Crop className="w-3 h-3" />
@@ -392,7 +392,7 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
                                   setImageUrl('');
                                   setIsCropping(false);
                                 }}
-                                className="p-1.5 bg-ink/70 hover:bg-ink text-paper rounded-lg transition-colors"
+                                className="p-1.5 bg-ink/70 hover:bg-ink text-white rounded-lg transition-colors"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>

@@ -163,7 +163,7 @@ export default function ImageRectangleCropper({
               backgroundColor: 'rgba(255, 255, 255, 0.12)',
             }}
           >
-            <div className="absolute -bottom-6 right-0 bg-ink text-paper text-[10px] font-mono px-1.5 py-0.5 rounded shadow">
+            <div className="absolute -bottom-6 right-0 bg-ink text-white text-[10px] font-mono px-1.5 py-0.5 rounded shadow">
               {Math.round(cropRect.w)} × {Math.round(cropRect.h)}
             </div>
           </div>
@@ -183,7 +183,7 @@ export default function ImageRectangleCropper({
         <button
           type="button"
           onClick={applyCrop}
-          className="px-4 py-1.5 bg-ink text-paper text-xs font-medium rounded-lg hover:bg-ink-light transition-colors flex items-center gap-1.5 shadow-soft"
+          className="px-4 py-1.5 bg-ink text-white text-xs font-medium rounded-lg hover:bg-ink-light transition-colors flex items-center gap-1.5 shadow-soft"
         >
           <Check className="w-3.5 h-3.5" />
           Apply crop

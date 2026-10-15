@@ -9,6 +9,7 @@ interface CrumbCardProps {
   crumb: Crumb;
   onDelete?: (id: string) => void;
   onUpdate?: (crumb: Crumb) => void;
+  readOnly?: boolean;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -21,7 +22,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   curios: 'bg-purple-100/90 text-purple-700 border-purple-200/50',
 };
 
-export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps) {
+export default function CrumbCard({
+  crumb,
+  onDelete,
+  onUpdate,
+  readOnly = false,
+}: CrumbCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [currentSrc, setCurrentSrc] = useState(crumb.image_url);
   const [attempt, setAttempt] = useState(0);
@@ -176,7 +182,7 @@ export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps)
 
           {/* Pending analysis banner */}
           {isPending && (
-            <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ink/80 text-paper text-[10px] tracking-wide font-medium backdrop-blur-md shadow-soft">
+            <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-ink/80 text-white text-[10px] tracking-wide font-medium backdrop-blur-md shadow-soft">
               <Sparkles className="w-3 h-3 animate-spin text-amber-300" />
               <span>analyzing piece...</span>
             </div>
@@ -248,53 +254,59 @@ export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps)
             transition={{ duration: 0.18, delay: 0.03 }}
             className="absolute bottom-2.5 left-2.5 flex flex-col gap-1 items-start z-30"
           >
-            <div className="relative">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowCategoryPicker((prev) => !prev);
-                }}
-                disabled={isUpdatingCategory}
-                title="Change category"
-                className={`text-[11px] font-medium tracking-tight px-2.5 py-1 rounded-full backdrop-blur-md border shadow-soft transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ${categoryColor}`}
-              >
-                <span>{displayCategory}</span>
-                <span className="text-[9px] opacity-60">▾</span>
-              </button>
-
-              {/* Category Picker Popover */}
-              {showCategoryPicker && (
-                <div
+            {readOnly || !onUpdate ? (
+              <span className={`text-[11px] font-medium tracking-tight px-2.5 py-1 rounded-full backdrop-blur-md border shadow-soft ${categoryColor}`}>
+                {displayCategory}
+              </span>
+            ) : (
+              <div className="relative">
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    setShowCategoryPicker((prev) => !prev);
                   }}
-                  className="absolute bottom-full left-0 mb-1.5 w-44 p-1.5 bg-surface border border-border rounded-2xl shadow-card flex flex-col gap-0.5 z-50 animate-in fade-in zoom-in-95 duration-150"
+                  disabled={isUpdatingCategory}
+                  title="Change category"
+                  className={`text-[11px] font-medium tracking-tight px-2.5 py-1 rounded-full backdrop-blur-md border shadow-soft transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ${categoryColor}`}
                 >
-                  <span className="text-[10px] uppercase tracking-wider text-muted font-semibold px-2 py-1">
-                    move to board
-                  </span>
-                  {(['clothes', 'shoes & accessories', 'home & living', 'tools & tech', 'misc'] as const).map(
-                    (cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={(e) => handleCategorySelect(e, cat)}
-                        className={`text-left px-2 py-1.5 text-xs rounded-xl font-medium transition-colors ${
-                          displayCategory === cat
-                            ? 'bg-ink text-paper font-semibold'
-                            : 'text-ink hover:bg-surface-hover'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    )
-                  )}
-                </div>
-              )}
-            </div>
+                  <span>{displayCategory}</span>
+                  <span className="text-[9px] opacity-60">▾</span>
+                </button>
+
+                {/* Category Picker Popover */}
+                {showCategoryPicker && (
+                  <div
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    className="absolute bottom-full left-0 mb-1.5 w-44 p-1.5 bg-surface border border-border rounded-2xl shadow-card flex flex-col gap-0.5 z-50 animate-in fade-in zoom-in-95 duration-150"
+                  >
+                    <span className="text-[10px] uppercase tracking-wider text-muted font-semibold px-2 py-1">
+                      move to board
+                    </span>
+                    {(['clothes', 'shoes & accessories', 'home & living', 'tools & tech', 'misc'] as const).map(
+                      (cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={(e) => handleCategorySelect(e, cat)}
+                          className={`text-left px-2 py-1.5 text-xs rounded-xl font-medium transition-colors ${
+                            displayCategory === cat
+                              ? 'bg-ink text-white font-semibold'
+                              : 'text-ink hover:bg-surface-hover'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {crumb.brand && (
               <span className="text-[10px] tracking-wide text-ink/90 bg-canvas/95 backdrop-blur-md px-2 py-0.5 rounded-md border border-border/40 font-medium shadow-soft">
@@ -306,36 +318,40 @@ export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps)
       </a>
 
       {/* Action buttons (Re-sort & Delete) — bottom right */}
-      <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 z-10">
-        <motion.button
-          animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 4 }}
-          transition={{ duration: 0.18, delay: 0.04 }}
-          onClick={handleResort}
-          disabled={isResorting || isPending}
-          title="Re-analyze & re-sort"
-          aria-label="Re-analyze & re-sort"
-          className="p-1.5 bg-canvas/95 backdrop-blur-md rounded-xl shadow-soft border border-border/40 hover:bg-surface-hover transition-colors duration-150 disabled:opacity-50"
-        >
-          <RefreshCw
-            className={`w-3.5 h-3.5 text-ink ${isResorting ? 'animate-spin' : ''}`}
-          />
-        </motion.button>
+      {!readOnly && (
+        <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 z-10">
+          {onUpdate && (
+            <motion.button
+              animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 4 }}
+              transition={{ duration: 0.18, delay: 0.04 }}
+              onClick={handleResort}
+              disabled={isResorting || isPending}
+              title="Re-analyze & re-sort"
+              aria-label="Re-analyze & re-sort"
+              className="p-1.5 bg-canvas/95 backdrop-blur-md rounded-xl shadow-soft border border-border/40 hover:bg-surface-hover transition-colors duration-150 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 text-ink ${isResorting ? 'animate-spin' : ''}`}
+              />
+            </motion.button>
+          )}
 
-        {onDelete && (
-          <motion.button
-            animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 4 }}
-            transition={{ duration: 0.18, delay: 0.06 }}
-            onClick={handleDelete}
-            disabled={isDeleting}
-            id={`delete-${crumb.id}`}
-            title="Remove crumb"
-            aria-label="Remove crumb"
-            className="p-1.5 bg-canvas/95 backdrop-blur-md rounded-xl shadow-soft border border-border/40 hover:bg-rose-50 hover:border-rose-200 transition-colors duration-150"
-          >
-            <Trash2 className={`w-3.5 h-3.5 ${isDeleting ? 'text-muted' : 'text-rose-500'}`} />
-          </motion.button>
-        )}
-      </div>
+          {onDelete && (
+            <motion.button
+              animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 4 }}
+              transition={{ duration: 0.18, delay: 0.06 }}
+              onClick={handleDelete}
+              disabled={isDeleting}
+              id={`delete-${crumb.id}`}
+              title="Remove crumb"
+              aria-label="Remove crumb"
+              className="p-1.5 bg-canvas/95 backdrop-blur-md rounded-xl shadow-soft border border-border/40 hover:bg-rose-50 hover:border-rose-200 transition-colors duration-150"
+            >
+              <Trash2 className={`w-3.5 h-3.5 ${isDeleting ? 'text-muted' : 'text-rose-500'}`} />
+            </motion.button>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }

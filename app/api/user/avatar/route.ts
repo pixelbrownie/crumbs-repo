@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No image file provided' }, { status: 400 });
     }
 
-    // Limit to 2MB
-    if (file.size > 2 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Avatar image must be under 2MB' }, { status: 400 });
+    // Limit to 500KB
+    if (file.size > 500 * 1024) {
+      return NextResponse.json({ error: 'Avatar image must be under 500KB' }, { status: 400 });
     }
 
     const arrayBuffer = await file.arrayBuffer();

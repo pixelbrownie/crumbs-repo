@@ -10,6 +10,7 @@ module.exports = {
       colors: {
         // Warm neutral palette
         canvas: '#faf9f7',
+        paper: '#faf9f7',
         surface: '#f2f0ec',
         'surface-hover': '#eceae4',
         border: '#e2dfd8',

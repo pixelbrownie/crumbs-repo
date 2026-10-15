@@ -279,7 +279,7 @@ function ShareHandler() {
                     disabled={updatingCategory}
                     className={`px-3 py-1.5 text-xs rounded-full font-medium transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-ink text-paper shadow-soft font-semibold scale-105'
+                        ? 'bg-ink text-white shadow-soft font-semibold scale-105'
                         : 'bg-surface hover:bg-surface-hover border border-border text-muted hover:text-ink'
                     }`}
                   >
@@ -299,7 +299,7 @@ function ShareHandler() {
                 if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
                 router.push('/');
               }}
-              className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 bg-ink text-paper text-xs font-semibold rounded-full hover:bg-ink/90 transition-colors shadow-soft cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 bg-ink text-white text-xs font-semibold rounded-full hover:bg-ink/90 transition-colors shadow-soft cursor-pointer"
             >
               <span>go to board</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -324,7 +324,7 @@ function ShareHandler() {
           <div className="pt-2 flex flex-col gap-2">
             <Link
               href="/"
-              className="w-full py-2 bg-ink text-paper text-xs font-medium rounded-full hover:bg-ink/90 transition-colors"
+              className="w-full py-2 bg-ink text-white text-xs font-medium rounded-full hover:bg-ink/90 transition-colors"
             >
               go to board
             </Link>
