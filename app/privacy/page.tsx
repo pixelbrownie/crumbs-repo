@@ -10,10 +10,10 @@ export default function PrivacyPolicyPage() {
     <div className="min-h-dvh bg-canvas py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto space-y-8">
         <header className="space-y-2">
-          <Link href="/" className="text-xl font-serif font-medium tracking-tight text-ink hover:opacity-85">
+          <Link href="/" className="text-xl font-sans font-semibold tracking-tight text-ink hover:opacity-85">
             crumbs
           </Link>
-          <h1 className="text-3xl font-serif font-medium text-ink tracking-tight pt-2">
+          <h1 className="text-3xl font-sans font-semibold text-ink tracking-tight pt-2">
             privacy policy
           </h1>
           <p className="text-xs text-muted font-mono">Last updated: October 2026</p>

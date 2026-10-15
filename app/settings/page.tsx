@@ -107,7 +107,7 @@ export default function SettingsPage() {
 
         <div className="space-y-8">
           <div>
-            <h1 className="text-2xl font-serif tracking-tight text-ink">settings</h1>
+            <h1 className="text-2xl font-sans font-semibold tracking-tight text-ink">settings</h1>
             <p className="text-xs text-muted mt-1">manage your browser extension capture tokens and connections</p>
           </div>
 

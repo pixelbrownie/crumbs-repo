@@ -98,7 +98,7 @@ export default function ConnectPage() {
     <div className="min-h-dvh bg-canvas flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm space-y-6 text-center">
         <div>
-          <span className="font-serif text-3xl font-normal tracking-tight text-ink">crumbs</span>
+          <span className="font-sans text-3xl font-semibold tracking-tight text-ink">crumbs</span>
           <p className="text-xs text-muted mt-1">connect your chrome extension</p>
         </div>
 

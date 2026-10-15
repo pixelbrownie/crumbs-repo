@@ -85,7 +85,7 @@ export default function CaptureBookmarkletPage() {
 
         <div className="space-y-8">
           <div>
-            <h1 className="text-3xl font-serif text-ink tracking-tight">crumbs bookmarklet</h1>
+            <h1 className="text-3xl font-sans font-semibold text-ink tracking-tight">crumbs bookmarklet</h1>
             <p className="text-xs text-muted mt-1">
               save products and inspiration from any browser without installing an extension
             </p>

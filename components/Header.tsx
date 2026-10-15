@@ -43,7 +43,7 @@ export default function Header({
         <div className="flex items-center gap-3 sm:gap-4 h-14">
           {/* Brand */}
           <Link href="/" className="flex-none flex flex-col leading-none select-none group">
-            <span className="text-xl font-serif font-medium tracking-tight text-ink group-hover:opacity-85 transition-opacity">
+            <span className="text-xl font-semibold tracking-tight text-ink font-sans group-hover:opacity-85 transition-opacity">
               crumbs
             </span>
             <span className="text-[10px] text-muted tracking-wide hidden sm:block">
