@@ -10,6 +10,7 @@ type AuthMode = 'login' | 'signup';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login');
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +48,13 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: {
+              display_name: displayName.trim() || email.split('@')[0],
+              full_name: displayName.trim() || email.split('@')[0],
+            },
+          },
         });
         if (error) throw error;
         setMessage({ type: 'success', text: 'Check your email for a confirmation link!' });
@@ -181,6 +188,18 @@ export default function LoginPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-3">
+              {mode === 'signup' && (
+                <input
+                  type="text"
+                  id="display-name-input"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="display name (e.g. ananya)"
+                  required
+                  maxLength={50}
+                  className="w-full px-3.5 py-2.5 text-sm bg-surface border border-border rounded-xl text-ink placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-ink/20 focus:border-ink/30 transition-all"
+                />
+              )}
               <input
                 type="email"
                 id="email-input"

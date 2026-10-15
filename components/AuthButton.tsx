@@ -41,39 +41,47 @@ export default function AuthButton({ user }: AuthButtonProps) {
     );
   }
 
-  const initials = user.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : 'U';
+  // Show only display name (never expose raw email address on UI)
+  const displayName =
+    user.user_metadata?.display_name ||
+    user.user_metadata?.full_name ||
+    user.email?.split('@')[0] ||
+    'you';
 
+  const initials = displayName.slice(0, 2).toUpperCase();
   const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-2.5 pl-3 pr-1.5 py-1.5 rounded-full bg-surface border border-border">
+    <div className="flex items-center gap-1.5 sm:gap-2">
+      <Link
+        href="/settings"
+        title="View profile & settings"
+        className="flex items-center gap-2 pl-2 sm:pl-2.5 pr-2.5 sm:pr-3 py-1 sm:py-1.5 rounded-full bg-surface hover:bg-surface-hover border border-border transition-colors group cursor-pointer select-none"
+      >
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={avatarUrl}
-            alt="avatar"
-            className="w-6 h-6 rounded-full object-cover"
+            alt={displayName}
+            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover"
           />
         ) : (
-          <div className="w-6 h-6 rounded-full bg-ink flex items-center justify-center">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-ink flex items-center justify-center">
             <span className="text-[10px] font-semibold text-canvas">{initials}</span>
           </div>
         )}
-        <span className="text-xs text-ink-light font-medium hidden sm:block max-w-[120px] truncate">
-          {user.email}
+        <span className="text-xs text-ink font-medium max-w-[100px] sm:max-w-[130px] truncate">
+          {displayName}
         </span>
-      </div>
+      </Link>
 
       <button
         onClick={handleLogout}
         title="Sign out"
         id="logout-btn"
-        className="p-2 rounded-full text-muted hover:text-ink hover:bg-surface transition-colors duration-150"
+        className="p-1.5 sm:p-2 rounded-full text-muted hover:text-ink hover:bg-surface transition-colors duration-150"
       >
-        <LogOut className="w-4 h-4" />
+        <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
       </button>
     </div>
   );
