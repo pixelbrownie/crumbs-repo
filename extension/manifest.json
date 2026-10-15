@@ -26,8 +26,7 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://crumbsbypixel.vercel.app/*",
-    "http://localhost:3000/*"
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js"

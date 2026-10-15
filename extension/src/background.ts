@@ -2,32 +2,42 @@
 
 const DEFAULT_API_URL = 'https://crumbsbypixel.vercel.app';
 
-// Set up Context Menus on installation
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: 'crumbs-save-page',
-    title: 'Save page to crumbs',
-    contexts: ['page'],
-  });
+// Set up Context Menus safely by clearing existing items first
+function setupContextMenus() {
+  chrome.contextMenus.removeAll(() => {
+    // Suppress any error from removeAll
+    if (chrome.runtime.lastError) {
+      // Ignored
+    }
 
-  chrome.contextMenus.create({
-    id: 'crumbs-save-image',
-    title: 'Save image to crumbs',
-    contexts: ['image'],
-  });
+    chrome.contextMenus.create({
+      id: 'crumbs-save-page',
+      title: 'Save page to crumbs',
+      contexts: ['page'],
+    });
 
-  chrome.contextMenus.create({
-    id: 'crumbs-save-link',
-    title: 'Save link to crumbs',
-    contexts: ['link'],
-  });
+    chrome.contextMenus.create({
+      id: 'crumbs-save-image',
+      title: 'Save image to crumbs',
+      contexts: ['image'],
+    });
 
-  chrome.contextMenus.create({
-    id: 'crumbs-snip-area',
-    title: '⛶ Snip rectangle on screen',
-    contexts: ['page', 'image'],
+    chrome.contextMenus.create({
+      id: 'crumbs-save-link',
+      title: 'Save link to crumbs',
+      contexts: ['link'],
+    });
+
+    chrome.contextMenus.create({
+      id: 'crumbs-snip-area',
+      title: '⛶ Snip rectangle on screen',
+      contexts: ['page', 'image'],
+    });
   });
-});
+}
+
+chrome.runtime.onInstalled.addListener(setupContextMenus);
+chrome.runtime.onStartup.addListener(setupContextMenus);
 
 // Flash badge text to give tactile confirmation
 function setBadge(text: string, color: string = '#262523', durationMs: number = 2200) {
@@ -93,6 +103,19 @@ async function capturePiece({
   }
 }
 
+// Ensure content script is running before sending message
+async function ensureContentScriptInjected(tabId: number): Promise<boolean> {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content.js'],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Start interactive area snip on target tab
 async function startAreaSnip(tab?: chrome.tabs.Tab) {
   let targetTab = tab;
@@ -102,14 +125,44 @@ async function startAreaSnip(tab?: chrome.tabs.Tab) {
   }
   if (!targetTab?.id) return;
 
+  const url = targetTab.url || '';
+  if (
+    url.startsWith('chrome://') ||
+    url.startsWith('edge://') ||
+    url.startsWith('about:') ||
+    url.startsWith('chrome-extension://')
+  ) {
+    setBadge('!', '#e11d48', 2500);
+    return;
+  }
+
   try {
     const screenshotUrl = await chrome.tabs.captureVisibleTab(targetTab.windowId, { format: 'png' });
-    chrome.tabs.sendMessage(targetTab.id, {
-      type: 'LAUNCH_SNIP_OVERLAY',
-      screenshotUrl,
-    });
+
+    // Send snip message, injecting script if receiving end not yet active
+    chrome.tabs.sendMessage(
+      targetTab.id,
+      { type: 'LAUNCH_SNIP_OVERLAY', screenshotUrl },
+      async () => {
+        if (chrome.runtime.lastError) {
+          // Clear error and inject script dynamically
+          const tabId = targetTab!.id!;
+          await ensureContentScriptInjected(tabId);
+          chrome.tabs.sendMessage(
+            tabId,
+            { type: 'LAUNCH_SNIP_OVERLAY', screenshotUrl },
+            () => {
+              if (chrome.runtime.lastError) {
+                // Ignore final fallback
+              }
+            }
+          );
+        }
+      }
+    );
   } catch (err) {
-    console.error('[crumbs] Failed to start area snip:', err);
+    console.warn('[crumbs] Cannot capture visible tab on this page:', err);
+    setBadge('!', '#e11d48', 2000);
   }
 }
 
@@ -132,32 +185,26 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       pageTitle: undefined,
     });
   } else if (info.menuItemId === 'crumbs-save-page' && tab.url) {
-    try {
-      chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PAGE_DATA' }, async (response) => {
-        if (chrome.runtime.lastError || !response) {
-          await capturePiece({
-            productUrl: tab.url!,
-            pageTitle: tab.title,
-          });
-        } else {
-          await capturePiece({
-            productUrl: response.product_url || tab.url!,
-            pageTitle: response.page_title || tab.title,
-            selectedImageUrl: response.selected_image_url,
-            imageCandidates: response.image_candidates,
-          });
-        }
-      });
-    } catch {
-      await capturePiece({
-        productUrl: tab.url,
-        pageTitle: tab.title,
-      });
-    }
+    chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PAGE_DATA' }, async (response) => {
+      if (chrome.runtime.lastError || !response) {
+        // Clear error and capture via tab URL
+        await capturePiece({
+          productUrl: tab.url!,
+          pageTitle: tab.title,
+        });
+      } else {
+        await capturePiece({
+          productUrl: response.product_url || tab.url!,
+          pageTitle: response.page_title || tab.title,
+          selectedImageUrl: response.selected_image_url,
+          imageCandidates: response.image_candidates,
+        });
+      }
+    });
   }
 });
 
-// Handle keyboard commands (Alt+Shift+S for page, Alt+Shift+X for snip)
+// Handle keyboard commands
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'snip-crumbs') {
     await startAreaSnip();
@@ -165,32 +212,25 @@ chrome.commands.onCommand.addListener(async (command) => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id || !tab.url) return;
 
-    try {
-      chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PAGE_DATA' }, async (response) => {
-        if (chrome.runtime.lastError || !response) {
-          await capturePiece({
-            productUrl: tab.url!,
-            pageTitle: tab.title,
-          });
-        } else {
-          await capturePiece({
-            productUrl: response.product_url || tab.url!,
-            pageTitle: response.page_title || tab.title,
-            selectedImageUrl: response.selected_image_url,
-            imageCandidates: response.image_candidates,
-          });
-        }
-      });
-    } catch {
-      await capturePiece({
-        productUrl: tab.url,
-        pageTitle: tab.title,
-      });
-    }
+    chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_PAGE_DATA' }, async (response) => {
+      if (chrome.runtime.lastError || !response) {
+        await capturePiece({
+          productUrl: tab.url!,
+          pageTitle: tab.title,
+        });
+      } else {
+        await capturePiece({
+          productUrl: response.product_url || tab.url!,
+          pageTitle: response.page_title || tab.title,
+          selectedImageUrl: response.selected_image_url,
+          imageCandidates: response.image_candidates,
+        });
+      }
+    });
   }
 });
 
-// Relay capture requests from popup / content
+// Relay capture requests
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'CAPTURE_PIECE') {
     capturePiece(message.payload).then(sendResponse);
