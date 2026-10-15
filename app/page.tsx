@@ -11,6 +11,7 @@ import Toast, { type ToastMessage } from '@/components/Toast';
 import type { Category, Collection, Crumb } from '@/types/crumb';
 import { createClient } from '@/lib/supabase';
 import { Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -21,7 +22,16 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // 2-second splash screen transition
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const supabase = createClient();
@@ -234,14 +244,53 @@ export default function DashboardPage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-dvh bg-canvas flex items-center justify-center">
-        <div className="text-muted text-sm animate-pulse">loading crumbs...</div>
+      <div className="fixed inset-0 z-50 bg-canvas flex flex-col items-center justify-center select-none">
+        <div className="text-center">
+          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-ink font-sans">
+            crumbs
+          </h1>
+          <p className="text-xs sm:text-sm text-muted tracking-wide mt-2 font-sans">
+            every piece you love.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-dvh bg-canvas">
+    <div className="min-h-dvh bg-canvas relative">
+      {/* 2-Second Luxury Brand Splash Overlay */}
+      <AnimatePresence>
+        {showSplash && (
+          <motion.div
+            key="splash-overlay"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 z-50 bg-canvas flex flex-col items-center justify-center select-none pointer-events-none"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              className="text-center"
+            >
+              <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight text-ink font-sans">
+                crumbs
+              </h1>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="text-xs sm:text-sm text-muted tracking-wide mt-2 font-sans"
+              >
+                every piece you love.
+              </motion.p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Header
         user={user}
         activeCategory={activeCategory}

@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   description:
     'A minimalist, visual wishlist board. Save, categorize, and revisit the things you love.',
   metadataBase: new URL('https://crumbs.vercel.app'),
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/icon-512.png',
+  },
   openGraph: {
     title: 'crumbs',
     description: 'every piece you love.',

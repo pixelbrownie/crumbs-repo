@@ -130,11 +130,14 @@ function drawCrumbsIcon(size: number): Buffer {
 }
 
 const outDir = path.resolve(process.cwd(), 'extension/icons');
+const publicDir = path.resolve(process.cwd(), 'public');
 fs.mkdirSync(outDir, { recursive: true });
+fs.mkdirSync(publicDir, { recursive: true });
 
-for (const size of [16, 32, 48, 128]) {
+for (const size of [16, 32, 48, 128, 192, 512]) {
   const icon = drawCrumbsIcon(size);
   const outPath = path.join(outDir, `icon-${size}.png`);
   fs.writeFileSync(outPath, icon);
-  console.log(`Generated ${outPath} (${size}x${size}, ${icon.length} bytes)`);
+  fs.writeFileSync(path.join(publicDir, `icon-${size}.png`), icon);
+  console.log(`Generated ${size}x${size} icon (${icon.length} bytes)`);
 }

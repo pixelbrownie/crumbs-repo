@@ -40,6 +40,21 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Auto-open and populate if URL params exist (e.g. from mobile share sheet / PWA)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const sharedUrl = params.get('url') || params.get('text');
+    const sharedTitle = params.get('title');
+
+    if (sharedUrl && (sharedUrl.startsWith('http://') || sharedUrl.startsWith('https://'))) {
+      setProductUrl(sharedUrl);
+      if (sharedTitle) setTitle(sharedTitle);
+      setOpen(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   const handleClose = () => {
     if (isSubmitting) return;
     setOpen(false);
