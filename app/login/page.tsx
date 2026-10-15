@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
-import { Loader2, ArrowRight, Mail } from 'lucide-react';
+import { Loader2, ArrowRight, Mail, AtSign, Check, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type AuthMode = 'login' | 'signup';
@@ -11,11 +11,15 @@ type AuthMode = 'login' | 'signup';
 export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [identifier, setIdentifier] = useState(''); // can be username or email for login
+  const [email, setEmail] = useState(''); // for signup
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [usernameStatus, setUsernameStatus] = useState<{ available?: boolean; error?: string } | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -37,6 +41,28 @@ export default function LoginPage() {
     return createClient();
   };
 
+  const handleCheckUsername = async (uname: string) => {
+    const clean = uname.toLowerCase().trim().replace(/^@+/, '').replace(/[^a-z0-9_.-]/g, '');
+    if (!clean || clean.length < 3) {
+      setUsernameStatus(null);
+      return;
+    }
+    setCheckingUsername(true);
+    try {
+      const res = await fetch(`/api/auth/username?username=${encodeURIComponent(clean)}`);
+      const data = await res.json();
+      if (!data.available) {
+        setUsernameStatus({ available: false, error: data.error || 'Username already taken.' });
+      } else {
+        setUsernameStatus({ available: true });
+      }
+    } catch {
+      setUsernameStatus(null);
+    } finally {
+      setCheckingUsername(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
@@ -44,32 +70,104 @@ export default function LoginPage() {
 
     try {
       const supabase = getSupabase();
+
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
-          email,
+        const cleanUname = username.toLowerCase().trim().replace(/^@+/, '').replace(/[^a-z0-9_.-]/g, '');
+        if (!cleanUname || cleanUname.length < 3) {
+          throw new Error('Username must be at least 3 characters long.');
+        }
+
+        // Verify username uniqueness
+        const checkRes = await fetch(`/api/auth/username?username=${encodeURIComponent(cleanUname)}`);
+        const checkData = await checkRes.json();
+        if (!checkData.available) {
+          throw new Error(checkData.error || `Username @${cleanUname} is already taken. Please choose another.`);
+        }
+
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanName = displayName.trim() || cleanUname;
+
+        const { data: signUpData, error } = await supabase.auth.signUp({
+          email: cleanEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
-              display_name: displayName.trim() || email.split('@')[0],
-              full_name: displayName.trim() || email.split('@')[0],
+              username: cleanUname,
+              display_name: cleanName,
+              full_name: cleanName,
             },
           },
         });
-        if (error) throw error;
-        setMessage({ type: 'success', text: 'Check your email for a confirmation link!' });
-      } else {
-        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+
         if (error) throw error;
 
-        // Immediately purge oversized base64 data URIs from Supabase Auth to prevent 494 cookie bloat
+        // Register username mapping for instant login resolution
+        await fetch('/api/auth/username', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: cleanUname,
+            email: cleanEmail,
+            displayName: cleanName,
+            userId: signUpData.user?.id,
+          }),
+        }).catch(() => {});
+
+        if (signUpData.session) {
+          window.location.href = '/';
+        } else {
+          setMessage({
+            type: 'success',
+            text: 'Account created! Please check your email for a confirmation link to log in.',
+          });
+        }
+      } else {
+        // Sign In Mode: Support either username or email!
+        const rawIdent = identifier.trim();
+        if (!rawIdent) {
+          throw new Error('Please enter your username or email.');
+        }
+
+        let loginEmail = rawIdent.toLowerCase();
+
+        // If identifier does not look like an email, resolve username to email
+        if (!rawIdent.includes('@') || !rawIdent.includes('.')) {
+          const resolveRes = await fetch('/api/auth/resolve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: rawIdent }),
+          });
+
+          const resolveData = await resolveRes.json();
+          if (!resolveRes.ok || !resolveData.email) {
+            throw new Error(
+              resolveData.error ||
+                `No account found with username @${rawIdent.replace(/^@+/, '')}. Please check or sign in with your email.`
+            );
+          }
+          loginEmail = resolveData.email;
+        }
+
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({
+          email: loginEmail,
+          password,
+        });
+
+        if (error) {
+          throw new Error('Incorrect credentials. Please check your username/email and password.');
+        }
+
+        // Self-heal oversized avatar if present
         if (signInData.user?.user_metadata?.avatar_url?.startsWith('data:')) {
           await supabase.auth.updateUser({
             data: { avatar_url: null },
           });
         }
 
-        window.location.href = '/';
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirectTarget = searchParams.get('redirect') || searchParams.get('next') || '/';
+        window.location.href = redirectTarget;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
@@ -80,20 +178,36 @@ export default function LoginPage() {
   };
 
   const handleMagicLink = async () => {
-    if (!email.trim()) {
-      setMessage({ type: 'error', text: 'Enter your email first.' });
+    const raw = identifier.trim() || email.trim();
+    if (!raw) {
+      setMessage({ type: 'error', text: 'Enter your username or email first.' });
       return;
     }
     setMessage(null);
     setLoading(true);
+
     try {
+      let targetEmail = raw.toLowerCase();
+      if (!raw.includes('@') || !raw.includes('.')) {
+        const resolveRes = await fetch('/api/auth/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: raw }),
+        });
+        const resolveData = await resolveRes.json();
+        if (!resolveRes.ok || !resolveData.email) {
+          throw new Error(resolveData.error || `No account found with username @${raw}.`);
+        }
+        targetEmail = resolveData.email;
+      }
+
       const supabase = getSupabase();
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: targetEmail,
         options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
       if (error) throw error;
-      setMessage({ type: 'success', text: 'Magic link sent — check your inbox.' });
+      setMessage({ type: 'success', text: `Magic link sent to ${targetEmail} — check your inbox.` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       setMessage({ type: 'error', text: msg });
@@ -133,7 +247,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-canvas flex items-center justify-center px-4">
+    <div className="min-h-dvh bg-canvas flex items-center justify-center px-4 font-sans">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -154,10 +268,14 @@ export default function LoginPage() {
               <button
                 key={m}
                 id={`auth-tab-${m}`}
-                onClick={() => { setMode(m); setMessage(null); }}
-                className={`flex-1 py-3.5 text-sm font-medium transition-colors duration-150 ${
+                onClick={() => {
+                  setMode(m);
+                  setMessage(null);
+                  setUsernameStatus(null);
+                }}
+                className={`flex-1 py-3.5 text-sm font-medium transition-colors duration-150 cursor-pointer ${
                   mode === m
-                    ? 'text-ink bg-surface'
+                    ? 'text-ink bg-surface font-semibold'
                     : 'text-muted hover:text-ink-light'
                 }`}
               >
@@ -173,7 +291,7 @@ export default function LoginPage() {
               type="button"
               onClick={handleGoogle}
               disabled={googleLoading}
-              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-border rounded-xl text-sm font-medium text-ink hover:bg-surface transition-colors duration-150 disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 border border-border rounded-xl text-sm font-medium text-ink hover:bg-surface transition-colors duration-150 disabled:opacity-50 cursor-pointer"
             >
               {googleLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-muted" />
@@ -196,27 +314,96 @@ export default function LoginPage() {
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-3">
-              {mode === 'signup' && (
-                <input
-                  type="text"
-                  id="display-name-input"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="display name (e.g. ananya)"
-                  required
-                  maxLength={50}
-                  className="w-full px-3.5 py-2.5 text-sm bg-surface border border-border rounded-xl text-ink placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-ink/20 focus:border-ink/30 transition-all"
-                />
+              {mode === 'signup' ? (
+                <>
+                  {/* Unique Username Input */}
+                  <div>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3 text-xs text-muted font-mono select-none">@</span>
+                      <input
+                        type="text"
+                        id="signup-username-input"
+                        value={username}
+                        onChange={(e) => {
+                          const val = e.target.value
+                            .toLowerCase()
+                            .replace(/^@+/, '')
+                            .replace(/[^a-z0-9_.-]/g, '')
+                            .slice(0, 30);
+                          setUsername(val);
+                          if (usernameStatus) setUsernameStatus(null);
+                        }}
+                        onBlur={() => handleCheckUsername(username)}
+                        placeholder="choose a username (e.g. ananya)"
+                        required
+                        minLength={3}
+                        maxLength={30}
+                        className={`w-full pl-7 pr-8 py-2.5 text-sm font-mono bg-surface border rounded-xl text-ink placeholder:text-muted focus:outline-none transition-all ${
+                          usernameStatus?.available === false
+                            ? 'border-rose-400 bg-rose-50/20'
+                            : usernameStatus?.available === true
+                            ? 'border-emerald-400 bg-emerald-50/20'
+                            : 'border-border focus:ring-1 focus:ring-ink/20 focus:border-ink/30'
+                        }`}
+                      />
+                      <div className="absolute right-3 flex items-center pointer-events-none">
+                        {checkingUsername ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-muted" />
+                        ) : usernameStatus?.available === true ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : usernameStatus?.available === false ? (
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                        ) : null}
+                      </div>
+                    </div>
+                    {usernameStatus?.error && (
+                      <p className="text-[11px] text-rose-500 mt-1 pl-1">
+                        {usernameStatus.error}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Display Name Input */}
+                  <input
+                    type="text"
+                    id="display-name-input"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="display name (e.g. Ananya)"
+                    required
+                    maxLength={50}
+                    className="w-full px-3.5 py-2.5 text-sm bg-surface border border-border rounded-xl text-ink placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-ink/20 focus:border-ink/30 transition-all"
+                  />
+
+                  {/* Email Input */}
+                  <input
+                    type="email"
+                    id="email-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    required
+                    className="w-full px-3.5 py-2.5 text-sm bg-surface border border-border rounded-xl text-ink placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-ink/20 focus:border-ink/30 transition-all"
+                  />
+                </>
+              ) : (
+                <>
+                  {/* Sign In Identifier: Username or Email */}
+                  <input
+                    type="text"
+                    id="identifier-input"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="username or email"
+                    required
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    className="w-full px-3.5 py-2.5 text-sm bg-surface border border-border rounded-xl text-ink placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-ink/20 focus:border-ink/30 transition-all font-sans"
+                  />
+                </>
               )}
-              <input
-                type="email"
-                id="email-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                required
-                className="w-full px-3.5 py-2.5 text-sm bg-surface border border-border rounded-xl text-ink placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-ink/20 focus:border-ink/30 transition-all"
-              />
+
+              {/* Password Input */}
               <input
                 type="password"
                 id="password-input"
@@ -234,10 +421,10 @@ export default function LoginPage() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className={`text-xs px-3 py-2 rounded-lg ${
+                    className={`text-xs px-3 py-2 rounded-lg leading-relaxed ${
                       message.type === 'success'
-                        ? 'bg-emerald-50 text-emerald-600'
-                        : 'bg-rose-50 text-rose-500'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-600 border border-rose-200'
                     }`}
                   >
                     {message.text}
@@ -248,15 +435,15 @@ export default function LoginPage() {
               <button
                 type="submit"
                 id="submit-auth-btn"
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-ink text-canvas text-sm font-semibold rounded-xl hover:bg-ink-light transition-colors duration-150 disabled:opacity-50"
+                disabled={loading || (mode === 'signup' && usernameStatus?.available === false)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-ink text-white text-sm font-semibold rounded-xl hover:bg-ink-light transition-colors duration-150 disabled:opacity-50 cursor-pointer shadow-soft"
               >
                 {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                 ) : (
                   <>
                     {mode === 'login' ? 'sign in' : 'create account'}
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4 text-white" />
                   </>
                 )}
               </button>
@@ -267,9 +454,9 @@ export default function LoginPage() {
                   id="magic-link-btn"
                   onClick={handleMagicLink}
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-border text-sm font-medium text-ink rounded-xl hover:bg-surface transition-colors duration-150 disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-border text-sm font-medium text-ink rounded-xl hover:bg-surface transition-colors duration-150 disabled:opacity-50 cursor-pointer"
                 >
-                  <Mail className="w-4 h-4" />
+                  <Mail className="w-4 h-4 text-muted" />
                   email magic link
                 </button>
               )}
