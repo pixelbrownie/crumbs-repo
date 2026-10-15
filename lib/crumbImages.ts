@@ -32,8 +32,9 @@ export async function getCrumbImageUrl(
     .from('crumb-images')
     .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
 
-  if (error) {
-    throw new Error(`Unable to create a private image URL: ${error.message}`);
+  if (error || !data?.signedUrl) {
+    console.warn(`[crumbImages] createSignedUrl failed for path ${path}:`, error?.message);
+    return imageUrl;
   }
 
   return data.signedUrl;

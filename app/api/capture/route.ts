@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Immediate placeholder URL until rehosted
-  const initialImageUrl = candidates[0] || 'https://crumbsbypixel.vercel.app/placeholder.svg';
+  const initialImageUrl = candidates[0] || '/placeholder.svg';
 
   // 6. Insert row immediately with status 'pending'
   const { data: newCrumb, error: insertError } = await supabase
@@ -157,6 +157,7 @@ export async function POST(req: NextRequest) {
     .insert({
       user_id: userId,
       image_url: initialImageUrl,
+      original_image_url: candidates[0] || null,
       product_url,
       category: 'curios',
       title: finalTitle || null,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ExternalLink, Trash2, RefreshCw, Sparkles, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Crumb } from '@/types/crumb';
@@ -22,10 +22,41 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState(crumb.image_url);
+  const [attempt, setAttempt] = useState(0);
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResorting, setIsResorting] = useState(false);
+
+  useEffect(() => {
+    setCurrentSrc(crumb.image_url);
+    setImgError(false);
+    setAttempt(0);
+  }, [crumb.image_url]);
+
+  const handleImageError = () => {
+    // Attempt 1: Try original_image_url if storage signed URL failed
+    if (attempt === 0 && crumb.original_image_url && crumb.original_image_url !== currentSrc) {
+      setAttempt(1);
+      setCurrentSrc(crumb.original_image_url);
+      return;
+    }
+    // Attempt 2: Route through proxy to bypass CDN anti-hotlinking
+    const sourceToProxy = crumb.original_image_url || (currentSrc.startsWith('http') ? currentSrc : null);
+    if (attempt <= 1 && sourceToProxy && !currentSrc.includes('/api/proxy-image')) {
+      setAttempt(2);
+      setCurrentSrc(`/api/proxy-image?url=${encodeURIComponent(sourceToProxy)}`);
+      return;
+    }
+    // Attempt 3: Clean local placeholder SVG
+    if (attempt <= 2 && currentSrc !== '/placeholder.svg') {
+      setAttempt(3);
+      setCurrentSrc('/placeholder.svg');
+      return;
+    }
+    setImgError(true);
+  };
 
   const categoryColor =
     CATEGORY_COLORS[crumb.category] ?? 'bg-zinc-100/90 text-zinc-700 border-zinc-200/50';
@@ -133,19 +164,22 @@ export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps)
 
           {/* Image */}
           {imgError ? (
-            <div className="w-full h-44 flex items-center justify-center bg-surface-hover text-muted text-xs">
-              image unavailable
+            <div className="w-full h-44 flex flex-col items-center justify-center bg-surface-hover text-muted text-xs p-4 text-center">
+              <span className="font-medium text-ink/70 capitalize mb-1">{crumb.category}</span>
+              <span className="text-[11px] text-muted">image preview unavailable</span>
             </div>
           ) : (
             <div className="relative w-full overflow-hidden bg-surface">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={crumb.image_url}
+                src={currentSrc}
                 alt={crumb.title ?? `${crumb.category} item`}
                 loading="lazy"
                 decoding="async"
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 onLoad={() => setImgLoaded(true)}
-                onError={() => setImgError(true)}
+                onError={handleImageError}
                 className={`w-full h-auto block object-cover rounded-2xl max-h-[75vh] transition-transform duration-300 ease-out group-hover:scale-[1.015] ${
                   isPending ? 'opacity-85 filter contrast-95' : ''
                 }`}

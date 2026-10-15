@@ -110,10 +110,22 @@ export async function GET(req: NextRequest) {
 
   try {
     const crumbs = await Promise.all(
-      data.map(async (crumb) => ({
-        ...crumb,
-        image_url: await getCrumbImageUrl(supabase, crumb.image_url),
-      }))
+      data.map(async (crumb) => {
+        let rawUrl = crumb.image_url;
+        if (!rawUrl || rawUrl.includes('crumbsbypixel.vercel.app/placeholder.svg')) {
+          rawUrl = crumb.original_image_url || '/placeholder.svg';
+        }
+        let resolvedUrl = rawUrl;
+        try {
+          resolvedUrl = await getCrumbImageUrl(supabase, rawUrl);
+        } catch {
+          resolvedUrl = crumb.original_image_url || rawUrl;
+        }
+        return {
+          ...crumb,
+          image_url: resolvedUrl,
+        };
+      })
     );
     return NextResponse.json({ crumbs });
   } catch (error) {

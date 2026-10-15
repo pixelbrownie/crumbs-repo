@@ -172,9 +172,11 @@ export async function enrichCrumb(
         });
 
       if (uploadError) {
-        console.error('[lib/enrichment] Storage upload error:', uploadError);
+        console.warn('[lib/enrichment] Storage upload failed, falling back to source URL:', uploadError.message);
+        finalStorageUrl = chosenSourceUrl || `data:${downloaded.mimeType};base64,${downloaded.buffer.toString('base64')}`;
+      } else {
+        finalStorageUrl = storagePath;
       }
-      finalStorageUrl = storagePath;
     }
 
     // 3. AI Vision Analysis

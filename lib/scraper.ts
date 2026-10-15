@@ -204,6 +204,42 @@ export async function scrapeProductPage(
       }
     }
 
+    // Amazon dynamic image dictionary: data-a-dynamic-image="{'url': [w,h]}"
+    const amazonDynamicMatches = html.matchAll(/data-a-dynamic-image=["']({[^"']+})["']/gi);
+    for (const match of amazonDynamicMatches) {
+      try {
+        const decoded = JSON.parse(match[1].replace(/&quot;/g, '"'));
+        for (const imgUrl of Object.keys(decoded)) {
+          addImage(imgUrl);
+        }
+      } catch {
+        // Skip unparseable dynamic image attribute
+      }
+    }
+
+    // Myntra Product State: window.__myx = {"pdpData":{...}}
+    const myxMatch = html.match(/window\.__myx\s*=\s*({[\s\S]*?});?<\/script>/i);
+    if (myxMatch) {
+      try {
+        const myx = JSON.parse(myxMatch[1]);
+        const pdp = myx.pdpData;
+        if (pdp) {
+          if (pdp.name && !title) title = pdp.name;
+          if (pdp.brand?.name && !brand) brand = pdp.brand.name;
+          if (pdp.price?.discounted && !price) price = `INR ${pdp.price.discounted}`;
+          const albums = pdp.media?.albums || [];
+          for (const album of albums) {
+            for (const img of album.images || []) {
+              if (img.imageURL) addImage(img.imageURL);
+              if (img.src) addImage(img.src);
+            }
+          }
+        }
+      } catch {
+        // Skip unparseable Myntra state
+      }
+    }
+
     // 4. Title & Brand Fallbacks
     if (!title) {
       const ogTitle =
