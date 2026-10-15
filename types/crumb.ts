@@ -60,6 +60,7 @@ export interface Collection {
   slug: string;
   created_at: string;
   item_count?: number;
+  count?: number;
 }
 
 export interface CaptureToken {
