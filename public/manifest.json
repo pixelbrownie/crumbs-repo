@@ -31,7 +31,7 @@
     }
   ],
   "share_target": {
-    "action": "/",
+    "action": "/share",
     "method": "GET",
     "params": {
       "title": "title",
