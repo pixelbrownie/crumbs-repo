@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import { createClient as createServerSupabase } from '@/lib/supabaseServer';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
@@ -174,19 +174,58 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 7. Trigger background enrichment without blocking response
-  void enrichCrumb(supabase, {
-    crumbId: newCrumb.id,
-    userId,
-    productUrl: product_url,
-    sourceDomain,
-    imageCandidates: candidates,
-    title: finalTitle,
-    pageMeta: page_meta,
+  // 7. Perform enrichment reliably within the execution window so Vercel doesn't kill it
+  try {
+    await Promise.race([
+      enrichCrumb(supabase, {
+        crumbId: newCrumb.id,
+        userId,
+        productUrl: product_url,
+        sourceDomain,
+        imageCandidates: candidates,
+        title: finalTitle,
+        pageMeta: page_meta,
+      }),
+      new Promise((resolve) => setTimeout(resolve, 4000)),
+    ]);
+  } catch (enrichErr) {
+    console.warn('[capture] Synchronous enrichment window passed:', enrichErr);
+  }
+
+  // Ensure Vercel serverless keeps context alive if trailing operations remain
+  after(async () => {
+    try {
+      const { data: check } = await supabase
+        .from('crumbs')
+        .select('status')
+        .eq('id', newCrumb.id)
+        .single();
+
+      if (check?.status === 'pending') {
+        await enrichCrumb(supabase, {
+          crumbId: newCrumb.id,
+          userId,
+          productUrl: product_url,
+          sourceDomain,
+          imageCandidates: candidates,
+          title: finalTitle,
+          pageMeta: page_meta,
+        });
+      }
+    } catch (err) {
+      console.warn('[capture] Background after() error:', err);
+    }
   });
 
+  // Query updated crumb so user gets 'ready' immediately
+  const { data: finalCrumb } = await supabase
+    .from('crumbs')
+    .select('*')
+    .eq('id', newCrumb.id)
+    .single();
+
   return NextResponse.json(
-    { crumb: newCrumb, deduplicated: false },
+    { crumb: finalCrumb || newCrumb, deduplicated: false },
     { status: 201, headers: corsHeaders }
   );
 }

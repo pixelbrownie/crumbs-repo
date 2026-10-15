@@ -65,6 +65,19 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Auto-heal any stale pending crumbs (>15 seconds old) to avoid endless spinner
+  try {
+    const staleThreshold = new Date(Date.now() - 15000).toISOString();
+    await supabase
+      .from('crumbs')
+      .update({ status: 'ready' })
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .lt('created_at', staleThreshold);
+  } catch {
+    // Non-blocking
+  }
+
   const { data, error } = await query;
 
   if (error) {
@@ -143,6 +156,7 @@ export async function POST(req: NextRequest) {
       product_url,
       category,
       title: typeof title === 'string' ? title.slice(0, 100) || null : null,
+      status: 'ready',
     })
     .select()
     .single();

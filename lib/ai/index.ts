@@ -7,6 +7,7 @@ import {
 } from './types';
 import { analyzeWithGemini } from './gemini';
 import { analyzeWithAnthropic } from './anthropic';
+import { analyzeWithGrok } from './grok';
 
 export * from './types';
 
@@ -53,31 +54,42 @@ export async function analyzeProduct(
 ): Promise<ProductAnalysis> {
   const provider = (process.env.AI_PROVIDER || 'gemini').toLowerCase().trim();
 
-  // Attempt analysis with 1 retry on parse failure
+  // Attempt primary provider
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       let analysis: ProductAnalysis;
 
       if (provider === 'anthropic') {
         analysis = await analyzeWithAnthropic(input);
+      } else if (provider === 'grok' || provider === 'xai') {
+        analysis = await analyzeWithGrok(input);
       } else {
         analysis = await analyzeWithGemini(input);
       }
 
-      // Final validation pass
       return ProductAnalysisSchema.parse(analysis);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[lib/ai] Provider ${provider} attempt ${attempt} failed: ${msg}`);
+      console.warn(`[lib/ai] Provider '${provider}' attempt ${attempt} failed: ${msg}`);
 
       if (attempt === 1) {
-        // Wait 300ms before retry
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
     }
   }
 
-  // Graceful fallback: never throw to the user
-  console.warn('[lib/ai] All provider attempts exhausted, using smart fallback.');
+  // If primary provider failed and it wasn't Gemini, try Gemini as free backup if key exists
+  if (provider !== 'gemini' && process.env.GEMINI_API_KEY) {
+    try {
+      console.log('[lib/ai] Attempting Gemini as backup provider...');
+      const backup = await analyzeWithGemini(input);
+      return ProductAnalysisSchema.parse(backup);
+    } catch (geminiErr) {
+      console.warn('[lib/ai] Backup Gemini also failed:', geminiErr);
+    }
+  }
+
+  // Graceful fallback: never throw or hang
+  console.warn('[lib/ai] Providers exhausted; using smart instant heuristic fallback.');
   return extractSmartFallback(input);
 }
