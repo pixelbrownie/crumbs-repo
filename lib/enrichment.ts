@@ -100,9 +100,40 @@ export async function enrichCrumb(
     // 1. Download and process image
     let downloaded: { buffer: Buffer; mimeType: string } | null = null;
     let chosenSourceUrl: string | null = null;
+    let existingStoragePath: string | null = null;
 
     for (const cand of imageCandidates) {
       if (!cand) continue;
+
+      // Check if candidate is already in Supabase storage
+      const storagePrefix = '/storage/v1/object/public/crumb-images/';
+      let rawStoragePath: string | null = null;
+      if (cand.includes(storagePrefix)) {
+        rawStoragePath = decodeURIComponent(cand.slice(cand.indexOf(storagePrefix) + storagePrefix.length).split('?')[0]);
+      } else if (!cand.startsWith('http://') && !cand.startsWith('https://') && !cand.startsWith('data:')) {
+        rawStoragePath = cand;
+      }
+
+      if (rawStoragePath) {
+        try {
+          const { data: blob, error: dlErr } = await supabase.storage
+            .from('crumb-images')
+            .download(rawStoragePath);
+          if (blob && !dlErr) {
+            const buffer = Buffer.from(await blob.arrayBuffer());
+            const mimeType = blob.type || 'image/jpeg';
+            if (buffer.length > 50) {
+              downloaded = { buffer, mimeType };
+              chosenSourceUrl = cand;
+              existingStoragePath = rawStoragePath;
+              break;
+            }
+          }
+        } catch (storageErr) {
+          console.warn('[enrichment] Storage direct download failed, trying network fallback:', storageErr);
+        }
+      }
+
       downloaded = await downloadImageWithReferer(cand, productUrl);
       if (downloaded) {
         chosenSourceUrl = cand;
@@ -118,29 +149,33 @@ export async function enrichCrumb(
 
     const { width, height, blurDataUrl } = inspectImage(downloaded.buffer, downloaded.mimeType);
 
-    // 2. Re-upload image to Supabase Storage
-    const ext = downloaded.mimeType.includes('png')
-      ? 'png'
-      : downloaded.mimeType.includes('webp')
-      ? 'webp'
-      : downloaded.mimeType.includes('svg')
-      ? 'svg'
-      : 'jpg';
-    const hash = crypto.randomBytes(8).toString('hex');
-    const storagePath = `${userId}/${Date.now()}-${hash}.${ext}`;
+    // 2. Storage URL (reuse existing path if already in storage, else upload)
+    let finalStorageUrl: string;
+    if (existingStoragePath) {
+      finalStorageUrl = existingStoragePath;
+    } else {
+      const ext = downloaded.mimeType.includes('png')
+        ? 'png'
+        : downloaded.mimeType.includes('webp')
+        ? 'webp'
+        : downloaded.mimeType.includes('svg')
+        ? 'svg'
+        : 'jpg';
+      const hash = crypto.randomBytes(8).toString('hex');
+      const storagePath = `${userId}/${Date.now()}-${hash}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('crumb-images')
-      .upload(storagePath, downloaded.buffer, {
-        contentType: downloaded.mimeType,
-        upsert: false,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from('crumb-images')
+        .upload(storagePath, downloaded.buffer, {
+          contentType: downloaded.mimeType,
+          upsert: false,
+        });
 
-    if (uploadError) {
-      console.error('[lib/enrichment] Storage upload error:', uploadError);
+      if (uploadError) {
+        console.error('[lib/enrichment] Storage upload error:', uploadError);
+      }
+      finalStorageUrl = storagePath;
     }
-
-    const finalStorageUrl = storagePath;
 
     // 3. AI Vision Analysis
     let analysis;

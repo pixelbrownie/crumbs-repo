@@ -10,6 +10,7 @@ import AddCrumbModal from '@/components/AddCrumbModal';
 import Toast, { type ToastMessage } from '@/components/Toast';
 import type { Category, Collection, Crumb } from '@/types/crumb';
 import { createClient } from '@/lib/supabase';
+import { Sparkles } from 'lucide-react';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -204,6 +205,33 @@ export default function DashboardPage() {
     addToast('success', 'piece re-sorted', `${updatedCrumb.category}${updatedCrumb.brand ? ` · ${updatedCrumb.brand}` : ''}`);
   };
 
+  const [resortingAll, setResortingAll] = useState(false);
+
+  const handleResortAll = async () => {
+    if (resortingAll) return;
+    setResortingAll(true);
+    addToast('info', 're-analyzing pieces', 'AI vision is inspecting and categorizing items...');
+    try {
+      const res = await fetch('/api/crumbs/resort', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        addToast('success', 'pieces categorized', `re-sorted ${data.count ?? ''} pieces into their boards`);
+        fetchCrumbs(activeCategory, activeCollection, searchQuery);
+        fetchCollections();
+      } else {
+        addToast('error', 're-sort failed', data.error || 'Could not re-sort pieces');
+      }
+    } catch {
+      addToast('error', 're-sort failed', 'Network error');
+    } finally {
+      setResortingAll(false);
+    }
+  };
+
   if (!mounted) {
     return (
       <div className="min-h-dvh bg-canvas flex items-center justify-center">
@@ -226,6 +254,26 @@ export default function DashboardPage() {
       />
 
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Banner when pieces are in curios or can be auto-distributed */}
+        {activeCategory === 'curios' && crumbs.length > 0 && (
+          <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-soft animate-in fade-in">
+            <div>
+              <span className="font-semibold text-ink text-sm block">Have pieces that belong in clothes or other boards?</span>
+              <p className="text-muted mt-0.5">
+                Earlier pieces saved before the AI vision upgrade defaulted to curios. Click below to automatically distribute them into clothes, shoes & accessories, home & living, or tech.
+              </p>
+            </div>
+            <button
+              onClick={handleResortAll}
+              disabled={resortingAll}
+              className="flex-none px-4 py-2 rounded-full bg-ink text-paper hover:bg-ink/90 font-medium transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              <Sparkles className={`w-3.5 h-3.5 text-amber-300 ${resortingAll ? 'animate-spin' : ''}`} />
+              <span>{resortingAll ? 're-sorting with AI...' : 'Re-sort all pieces'}</span>
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 gap-3 sm:gap-4 column-fill-balance w-full">
             {Array.from({ length: 12 }).map((_, i) => (
