@@ -19,6 +19,8 @@ import {
   Sparkles,
   Users,
   Grid,
+  UserPlus,
+  UserCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -67,6 +69,8 @@ export default function UserProfilePage({
   const [crumbs, setCrumbs] = useState<Crumb[]>([]);
   const [crumbsCount, setCrumbsCount] = useState<number>(0);
   const [isOwner, setIsOwner] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,6 +108,7 @@ export default function UserProfilePage({
         setCrumbs(data.crumbs || []);
         setCrumbsCount(data.crumbsCount ?? data.crumbs?.length ?? 0);
         setIsOwner(Boolean(data.isOwner));
+        setIsFollowing(Boolean(data.isFollowing));
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -140,6 +145,33 @@ export default function UserProfilePage({
       setTimeout(() => setCopied(false), 2500);
     } catch {
       // ignore
+    }
+  };
+
+  const handleToggleFollow = async () => {
+    if (!currentUser) {
+      router.push(`/login?redirect=/${cleanUsername}`);
+      return;
+    }
+    if (followLoading || !profile) return;
+    setFollowLoading(true);
+    try {
+      const res = await fetch('/api/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_user_id: profile.id, action: 'toggle' }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setIsFollowing(Boolean(data.is_following));
+        if (typeof data.followers_count === 'number') {
+          setProfile((prev) => (prev ? { ...prev, followers_count: data.followers_count } : null));
+        }
+      }
+    } catch (err) {
+      console.error('Follow error:', err);
+    } finally {
+      setFollowLoading(false);
     }
   };
 
@@ -264,6 +296,31 @@ export default function UserProfilePage({
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2 mt-4">
+                {!isOwner && (
+                  <button
+                    type="button"
+                    onClick={handleToggleFollow}
+                    disabled={followLoading}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full transition-all shadow-soft cursor-pointer active:scale-95 ${
+                      isFollowing
+                        ? 'bg-surface hover:bg-surface-hover text-ink border border-border'
+                        : 'bg-ink text-white hover:bg-ink-light'
+                    }`}
+                  >
+                    {isFollowing ? (
+                      <>
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>following</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>follow</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleShareProfile}

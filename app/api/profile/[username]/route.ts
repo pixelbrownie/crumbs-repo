@@ -75,6 +75,44 @@ export async function GET(
 
   const isOwner = currentUser?.id === profileData.id;
 
+  // Check if current user is following this profile
+  let isFollowing = false;
+  if (currentUser && !isOwner) {
+    try {
+      const { data: followRow } = await supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', currentUser.id)
+        .eq('following_id', profileData.id)
+        .maybeSingle();
+
+      isFollowing = Boolean(followRow);
+    } catch {
+      // non-blocking
+    }
+  }
+
+  // Retrieve accurate follower and following counts from follows table
+  try {
+    const { count: fCount } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', profileData.id);
+    if (typeof fCount === 'number') {
+      profileData.followers_count = fCount;
+    }
+
+    const { count: fingCount } = await supabase
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('follower_id', profileData.id);
+    if (typeof fingCount === 'number') {
+      profileData.following_count = fingCount;
+    }
+  } catch {
+    // fallback to stored counts
+  }
+
   // Count pieces
   let crumbsCount = 0;
   try {
@@ -121,5 +159,6 @@ export async function GET(
     crumbsCount,
     crumbs,
     isOwner,
+    isFollowing,
   });
 }
