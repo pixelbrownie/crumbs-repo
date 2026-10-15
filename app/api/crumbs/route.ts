@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabaseServer';
 import { getCrumbImageUrl } from '@/lib/crumbImages';
 import { AI_CATEGORIES } from '@/types/crumb';
+import { detectCategoryFromText } from '@/lib/ai';
 
 function isHttpUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
@@ -33,6 +34,29 @@ export async function GET(req: NextRequest) {
   const collectionId = searchParams.get('collection_id');
   const searchQuery = searchParams.get('q')?.trim();
   const tag = searchParams.get('tag')?.trim();
+
+  // Auto-heal any crumbs stuck in 'curios' that clearly belong to clothes, shoes, home, or tech
+  try {
+    const { data: curiosCrumbs } = await supabase
+      .from('crumbs')
+      .select('id, title, product_url, item_type')
+      .eq('user_id', user.id)
+      .eq('category', 'curios')
+      .limit(50);
+
+    for (const c of curiosCrumbs || []) {
+      const combined = `${c.title || ''} ${c.product_url || ''} ${c.item_type || ''}`;
+      const detected = detectCategoryFromText(combined);
+      if (detected && detected !== 'curios') {
+        await supabase
+          .from('crumbs')
+          .update({ category: detected })
+          .eq('id', c.id);
+      }
+    }
+  } catch (healErr) {
+    console.warn('[crumbs] Auto-heal curios error:', healErr);
+  }
 
   let query = supabase
     .from('crumbs')

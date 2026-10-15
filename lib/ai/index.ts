@@ -11,25 +11,58 @@ import { analyzeWithGrok } from './grok';
 
 export * from './types';
 
+export function detectCategoryFromText(text: string): Category | null {
+  const t = text.toLowerCase();
+
+  // Clothes: tops, bottoms, outerwear, dresses, knitwear, activewear, intimates
+  if (
+    /\b(dress|dresses|gown|gowns|skirt|skirts|jacket|jackets|coat|coats|overcoat|trench|blazer|blazers|puffer|bomber|parka|fleece|windbreaker|shirt|shirts|t-shirt|tshirts|t-shirts|tee|tees|top|tops|tank|tanks|blouse|blouses|sweater|sweaters|knit|knits|knitwear|cardigan|cardigans|hoodie|hoodies|sweatshirt|sweatshirts|turtleneck|vest|vests|pants|trousers|trouser|jeans|denim|shorts|leggings|sweatpants|joggers|suit|suits|swimsuit|bikini|swimwear|bra|bras|lingerie|underwear|boxers|briefs|bodysuit|corset|camisole|cami|pajamas|sleepwear|jumpsuit|romper|apparel|clothing|garment)\b/.test(
+      t
+    )
+  ) {
+    return 'clothes';
+  }
+
+  // Shoes & Accessories: footwear, bags, jewelry, eyewear, headwear, leather goods
+  if (
+    /\b(shoe|shoes|sneaker|sneakers|boot|boots|heel|heels|flat|flats|loafer|loafers|sandal|sandals|mule|mules|clog|clogs|slipper|slippers|slide|slides|footwear|bag|bags|handbag|handbags|purse|purses|tote|totes|backpack|backpacks|wallet|wallets|cardholder|clutch|jewelry|jewellery|necklace|necklaces|ring|rings|earring|earrings|bracelet|bracelets|sunglasses|shades|eyewear|glasses|watch|watches|hat|hats|cap|caps|beanie|beanies|belt|belts|scarf|scarves|gloves)\b/.test(
+      t
+    )
+  ) {
+    return 'shoes & accessories';
+  }
+
+  // Home & Living: furniture, lighting, decor, tableware, kitchen, textiles
+  if (
+    /\b(chair|chairs|armchair|stool|stools|table|tables|sofa|sofas|couch|lamp|lamps|light|lighting|sconce|candle|candles|candleholder|vase|vases|rug|rugs|pillow|pillows|cushion|cushions|blanket|blankets|throw|throws|bedding|linen|linens|ceramic|ceramics|pottery|plate|plates|mug|mugs|cup|cups|bowl|bowls|glassware|glass|mirror|mirrors|furniture|decor|kitchen|planter|planters|diffuser)\b/.test(
+      t
+    )
+  ) {
+    return 'home & living';
+  }
+
+  // Tools & Tech: gadgets, electronics, audio, computing, cameras
+  if (
+    /\b(headphone|headphones|earbuds|airpods|speaker|speakers|audio|keyboard|keyboards|mouse|laptop|laptops|phone|phones|iphone|charger|chargers|case|cases|cable|cables|camera|cameras|monitor|monitors|display|gadget|gadgets|tech|hardware|electronics)\b/.test(
+      t
+    )
+  ) {
+    return 'tools & tech';
+  }
+
+  return null;
+}
+
 function extractSmartFallback(input: AnalyzeProductInput): ProductAnalysis {
   const text = `${input.title || ''} ${input.productUrl || ''}`.toLowerCase();
+  const detectedCategory = detectCategoryFromText(text);
+  const category: Category = detectedCategory || 'curios';
 
-  let category: Category = 'curios';
   let itemType = 'piece';
-
-  if (/\b(dress|jacket|coat|blazer|shirt|top|pants|trousers|jeans|sweater|hoodie|skirt|shorts|swimsuit|vest|knit)\b/.test(text)) {
-    category = 'clothes';
-    itemType = 'clothing';
-  } else if (/\b(shoe|shoes|sneaker|boots|heels|flats|loafers|bag|handbag|purse|tote|backpack|wallet|jewelry|necklace|ring|earring|sunglasses|hat|cap|belt)\b/.test(text)) {
-    category = 'shoes & accessories';
-    itemType = 'accessory';
-  } else if (/\b(chair|table|lamp|candle|vase|rug|pillow|blanket|bedding|ceramic|mug|cup|plate|decor|furniture|kitchen)\b/.test(text)) {
-    category = 'home & living';
-    itemType = 'home good';
-  } else if (/\b(headphone|headphones|earbuds|speaker|audio|keyboard|mouse|laptop|phone|case|charger|camera|gadget|tech)\b/.test(text)) {
-    category = 'tools & tech';
-    itemType = 'tech accessory';
-  }
+  if (category === 'clothes') itemType = 'clothing';
+  else if (category === 'shoes & accessories') itemType = 'accessory';
+  else if (category === 'home & living') itemType = 'home good';
+  else if (category === 'tools & tech') itemType = 'tech item';
 
   const rawTags = (input.title || 'curated piece')
     .toLowerCase()
@@ -45,7 +78,8 @@ function extractSmartFallback(input: AnalyzeProductInput): ProductAnalysis {
     category,
     item_type: itemType,
     brand: input.pageMeta?.brand || null,
-    tags: tags.length >= 5 ? tags : ['curated', 'piece', 'saved', category, 'minimal'],
+    aesthetic: [],
+    tags: tags.length >= 2 ? tags : ['curated', category],
   };
 }
 

@@ -48,14 +48,11 @@ export default function Header({
           {/* Divider */}
           <div className="hidden sm:block w-px h-5 bg-border flex-none" />
 
-          {/* Category & Smart Boards tabs — single continuous bar */}
+          {/* Category tabs */}
           <div className="flex-1 min-w-0">
             <CategoryTabs
               active={activeCategory}
               onChange={onCategoryChange}
-              collections={collections}
-              activeCollection={activeCollection}
-              onSelectCollection={onSelectCollection}
             />
           </div>
 

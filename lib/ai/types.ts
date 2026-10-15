@@ -16,8 +16,8 @@ export const ProductAnalysisSchema = z.object({
   brand: z.string().nullable().describe('Brand name if visibly branded or explicitly mentioned in title/meta, otherwise null'),
   colors: z.array(z.string()).min(1).max(3).describe('1 to 3 dominant color names, plain lowercase words like "sand", "black", "olive"'),
   materials: z.array(z.string()).describe('Materials detected from image or title, e.g. ["wool", "leather", "linen", "ceramic"]'),
-  aesthetic: z.array(z.string()).min(1).max(3).describe('1 to 3 aesthetic vibes, e.g. ["minimalist", "vintage", "y2k", "cottagecore", "industrial", "modernist"]'),
-  tags: z.array(z.string()).min(5).max(10).describe('5 to 10 lowercase descriptive search tags'),
+  aesthetic: z.array(z.string()).min(0).max(3).describe('1 to 3 aesthetic vibes, e.g. ["minimalist", "vintage", "y2k", "cottagecore", "industrial", "modernist"]'),
+  tags: z.array(z.string()).min(0).max(10).describe('descriptive search tags'),
   confidence: z.number().min(0).max(1).describe('Confidence score between 0 and 1'),
 });
 
@@ -43,7 +43,7 @@ export const FALLBACK_ANALYSIS: ProductAnalysis = {
   brand: null,
   colors: ['neutral'],
   materials: [],
-  aesthetic: ['minimalist'],
+  aesthetic: [],
   tags: ['curated', 'piece', 'saved'],
   confidence: 0.3,
 };
