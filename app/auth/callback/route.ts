@@ -23,6 +23,10 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.user_metadata?.avatar_url?.startsWith('data:')) {
+        await supabase.auth.updateUser({ data: { avatar_url: null } });
+      }
       return NextResponse.redirect(new URL(destination, baseUrl));
     }
     console.error('[auth/callback] Error exchanging code for session:', error.message);

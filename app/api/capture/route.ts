@@ -5,6 +5,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { hashCaptureToken, getCorsHeaders } from '@/lib/security';
 import { scrapeProductPage } from '@/lib/scraper';
 import { enrichCrumb } from '@/lib/enrichment';
+import { detectCategoryFromText } from '@/lib/ai';
 
 const CaptureInputSchema = z.object({
   product_url: z.string().url(),
@@ -12,6 +13,7 @@ const CaptureInputSchema = z.object({
   image_candidates: z.array(z.string()).optional(),
   selected_image_url: z.string().nullable().optional(),
   page_meta: z.record(z.string(), z.unknown()).optional(),
+  category: z.string().optional(),
 });
 
 // Simple in-memory rate limiter per user (30 requests/minute)
@@ -151,6 +153,12 @@ export async function POST(req: NextRequest) {
   // Immediate placeholder URL until rehosted
   const initialImageUrl = candidates[0] || '/placeholder.svg';
 
+  const detectedCat = detectCategoryFromText(`${finalTitle || ''} ${product_url}`);
+  const initialCategory =
+    (parsed.data.category as any) ||
+    detectedCat ||
+    'misc';
+
   // 6. Insert row immediately with status 'pending'
   const { data: newCrumb, error: insertError } = await supabase
     .from('crumbs')
@@ -159,7 +167,7 @@ export async function POST(req: NextRequest) {
       image_url: initialImageUrl,
       original_image_url: candidates[0] || null,
       product_url,
-      category: 'curios',
+      category: initialCategory === 'curios' ? 'misc' : initialCategory,
       title: finalTitle || null,
       source_domain: sourceDomain,
       status: 'pending',

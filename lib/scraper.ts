@@ -26,12 +26,40 @@ const DISALLOWED_IMAGE_SUBSTRINGS = [
   'blank',
 ];
 
+export function normalizeAppProductUrl(rawUrl: string): string {
+  let target = rawUrl.trim();
+
+  // 1. Myntra app mailers or product URLs
+  // e.g. https://www.myntra.com/mailers/product/2275365?utm_source=... -> https://www.myntra.com/2275365
+  const myntraMatch = target.match(/myntra\.com\/(?:mailers\/product|product|checkout\/cart)\/(\d+)/i);
+  if (myntraMatch) {
+    return `https://www.myntra.com/${myntraMatch[1]}`;
+  }
+
+  // 2. Amazon ASIN
+  const amazonMatch = target.match(/amazon\.[a-z.]+\/.*?(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+  if (amazonMatch) {
+    const domainMatch = target.match(/(amazon\.[a-z.]+)/i);
+    const domain = domainMatch ? domainMatch[1] : 'amazon.com';
+    return `https://www.${domain}/dp/${amazonMatch[1]}`;
+  }
+
+  // 3. Ajio product
+  const ajioMatch = target.match(/ajio\.com\/.*?(?:\/p\/|\/item\/)(\d+)/i);
+  if (ajioMatch) {
+    return `https://www.ajio.com/p/${ajioMatch[1]}`;
+  }
+
+  return target;
+}
+
 export async function scrapeProductPage(
   url: string
 ): Promise<ScrapedProductData> {
+  const normalizedUrl = normalizeAppProductUrl(url);
   let parsedUrl: URL;
   try {
-    parsedUrl = new URL(url);
+    parsedUrl = new URL(normalizedUrl);
   } catch {
     return {
       title: null,
@@ -44,7 +72,7 @@ export async function scrapeProductPage(
 
   const sourceDomain = parsedUrl.hostname.replace(/^www\./, '');
 
-  if (!isSafePublicUrl(url)) {
+  if (!isSafePublicUrl(normalizedUrl)) {
     return {
       title: null,
       brand: null,
@@ -55,33 +83,60 @@ export async function scrapeProductPage(
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 9000);
+    let fetchUrl = normalizedUrl;
+    let res: Response | null = null;
+    let redirectCount = 0;
 
-    // Authentic desktop browser headers to prevent bot-shield blocks (Cloudflare, Akamai, Amazon)
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1',
-      },
-    });
+    // Follow redirects safely without crashing on app scheme intents
+    while (redirectCount < 4) {
+      redirectCount++;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
 
-    clearTimeout(timeout);
+      const response: Response = await fetch(fetchUrl, {
+        signal: controller.signal,
+        redirect: 'manual',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+        },
+      });
 
-    if (!res.ok) {
+      clearTimeout(timeout);
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (location) {
+          if (location.startsWith('intent:')) {
+            const fallbackMatch = location.match(/browser_fallback_url=([^;]+)/);
+            if (fallbackMatch) {
+              fetchUrl = decodeURIComponent(fallbackMatch[1]);
+              continue;
+            }
+            break;
+          } else if (location.startsWith('http://') || location.startsWith('https://')) {
+            fetchUrl = normalizeAppProductUrl(location);
+            continue;
+          }
+        }
+      }
+
+      res = response;
+      break;
+    }
+
+    if (!res || !res.ok) {
       return {
         title: null,
         brand: null,
@@ -237,6 +292,29 @@ export async function scrapeProductPage(
         }
       } catch {
         // Skip unparseable Myntra state
+      }
+    }
+
+    // Universal script & JSON image URL scanner (Flipkart, Ajio, Zara, Shopify, SSENSE)
+    const scriptImages = html.matchAll(
+      /["'](https?:\/\/[^"'\s\\]+\.(?:jpg|jpeg|png|webp|avif)(?:\?[^"'\s\\]*)?)["']/gi
+    );
+    for (const sMatch of scriptImages) {
+      const cand = sMatch[1].replace(/\\u002F/g, '/').replace(/\\\//g, '/');
+      const lower = cand.toLowerCase();
+      if (
+        !DISALLOWED_IMAGE_SUBSTRINGS.some((sub) => lower.includes(sub)) &&
+        (lower.includes('product') ||
+          lower.includes('asset') ||
+          lower.includes('media') ||
+          lower.includes('image') ||
+          lower.includes('myntassets') ||
+          lower.includes('ssl-images-amazon') ||
+          lower.includes('flixcart') ||
+          lower.includes('zara') ||
+          lower.includes('ajio'))
+      ) {
+        addImage(cand);
       }
     }
 

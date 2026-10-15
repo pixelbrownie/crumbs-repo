@@ -17,6 +17,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   'body & skin': 'bg-pink-100/90 text-pink-700 border-pink-200/50',
   'home & living': 'bg-emerald-100/90 text-emerald-700 border-emerald-200/50',
   'tools & tech': 'bg-blue-100/90 text-blue-700 border-blue-200/50',
+  misc: 'bg-purple-100/90 text-purple-700 border-purple-200/50',
   curios: 'bg-purple-100/90 text-purple-700 border-purple-200/50',
 };
 
@@ -28,12 +29,42 @@ export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps)
   const [imgLoaded, setImgLoaded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResorting, setIsResorting] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [isUpdatingCategory, setIsUpdatingCategory] = useState(false);
+
+  const displayCategory = crumb.category === 'curios' ? 'misc' : crumb.category;
+  const categoryColor =
+    CATEGORY_COLORS[displayCategory] ?? 'bg-zinc-100/90 text-zinc-700 border-zinc-200/50';
 
   useEffect(() => {
     setCurrentSrc(crumb.image_url);
     setImgError(false);
     setAttempt(0);
   }, [crumb.image_url]);
+
+  const handleCategorySelect = async (e: React.MouseEvent, newCat: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowCategoryPicker(false);
+    if (newCat === crumb.category || isUpdatingCategory) return;
+
+    setIsUpdatingCategory(true);
+    try {
+      const res = await fetch('/api/crumbs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: crumb.id, category: newCat }),
+      });
+      const data = await res.json();
+      if (res.ok && data.crumb) {
+        onUpdate?.(data.crumb);
+      }
+    } catch (err) {
+      console.error('Failed to change category:', err);
+    } finally {
+      setIsUpdatingCategory(false);
+    }
+  };
 
   const handleImageError = () => {
     // Attempt 1: Try original_image_url if storage signed URL failed
@@ -57,9 +88,6 @@ export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps)
     }
     setImgError(true);
   };
-
-  const categoryColor =
-    CATEGORY_COLORS[crumb.category] ?? 'bg-zinc-100/90 text-zinc-700 border-zinc-200/50';
 
   const isPending = crumb.status === 'pending';
   const isFailed = crumb.status === 'failed';
@@ -216,15 +244,58 @@ export default function CrumbCard({ crumb, onDelete, onUpdate }: CrumbCardProps)
 
           {/* Category pill & Brand tag — bottom left */}
           <motion.div
-            animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 4 }}
+            animate={{ opacity: isHovered || showCategoryPicker ? 1 : 0, y: isHovered || showCategoryPicker ? 0 : 4 }}
             transition={{ duration: 0.18, delay: 0.03 }}
-            className="absolute bottom-2.5 left-2.5 flex flex-col gap-1 items-start"
+            className="absolute bottom-2.5 left-2.5 flex flex-col gap-1 items-start z-30"
           >
-            <span
-              className={`text-[11px] font-medium tracking-tight px-2.5 py-1 rounded-full backdrop-blur-md border shadow-soft ${categoryColor}`}
-            >
-              {crumb.category}
-            </span>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowCategoryPicker((prev) => !prev);
+                }}
+                disabled={isUpdatingCategory}
+                title="Change category"
+                className={`text-[11px] font-medium tracking-tight px-2.5 py-1 rounded-full backdrop-blur-md border shadow-soft transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1 ${categoryColor}`}
+              >
+                <span>{displayCategory}</span>
+                <span className="text-[9px] opacity-60">▾</span>
+              </button>
+
+              {/* Category Picker Popover */}
+              {showCategoryPicker && (
+                <div
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  className="absolute bottom-full left-0 mb-1.5 w-44 p-1.5 bg-surface border border-border rounded-2xl shadow-card flex flex-col gap-0.5 z-50 animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <span className="text-[10px] uppercase tracking-wider text-muted font-semibold px-2 py-1">
+                    move to board
+                  </span>
+                  {(['clothes', 'shoes & accessories', 'home & living', 'tools & tech', 'misc'] as const).map(
+                    (cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={(e) => handleCategorySelect(e, cat)}
+                        className={`text-left px-2 py-1.5 text-xs rounded-xl font-medium transition-colors ${
+                          displayCategory === cat
+                            ? 'bg-ink text-paper font-semibold'
+                            : 'text-ink hover:bg-surface-hover'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
             {crumb.brand && (
               <span className="text-[10px] tracking-wide text-ink/90 bg-canvas/95 backdrop-blur-md px-2 py-0.5 rounded-md border border-border/40 font-medium shadow-soft">
                 {crumb.brand}

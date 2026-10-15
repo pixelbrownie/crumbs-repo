@@ -5,6 +5,7 @@ export const CATEGORIES = [
   'shoes & accessories',
   'home & living',
   'tools & tech',
+  'misc',
   'curios',
 ] as const;
 
@@ -39,7 +40,7 @@ export interface AnalyzeProductInput {
 
 export const FALLBACK_ANALYSIS: ProductAnalysis = {
   item_type: 'item',
-  category: 'curios',
+  category: 'misc',
   brand: null,
   colors: ['neutral'],
   materials: [],

@@ -455,7 +455,7 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
                       <option value="body & skin">body & skin (skincare, makeup, perfume)</option>
                       <option value="home & living">home & living (decor, candles, furniture)</option>
                       <option value="tools & tech">tools & tech (gadgets, audio, desk)</option>
-                      <option value="curios">curios (art, books, unique finds)</option>
+                      <option value="misc">misc (art, books, unique finds)</option>
                     </select>
                   </div>
 

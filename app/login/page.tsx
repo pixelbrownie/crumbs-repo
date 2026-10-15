@@ -59,8 +59,16 @@ export default function LoginPage() {
         if (error) throw error;
         setMessage({ type: 'success', text: 'Check your email for a confirmation link!' });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+
+        // Immediately purge oversized base64 data URIs from Supabase Auth to prevent 494 cookie bloat
+        if (signInData.user?.user_metadata?.avatar_url?.startsWith('data:')) {
+          await supabase.auth.updateUser({
+            data: { avatar_url: null },
+          });
+        }
+
         window.location.href = '/';
       }
     } catch (err) {

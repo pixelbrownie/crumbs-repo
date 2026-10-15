@@ -14,7 +14,8 @@ const LABELS: Record<Category, string> = {
   'shoes & accessories': 'shoes & accessories',
   'home & living': 'home & living',
   'tools & tech': 'tools & tech',
-  curios: 'curios',
+  misc: 'misc',
+  curios: 'misc',
 };
 
 export default function CategoryTabs({ active, onChange }: CategoryTabsProps) {

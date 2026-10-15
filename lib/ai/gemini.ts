@@ -25,10 +25,10 @@ Use the product title, URL, and page metadata only as secondary hints.
 CLASSIFICATION RULES:
 - category: Pick EXACTLY one from:
   * "clothes": apparel, jackets, coats, tops, shirts, trousers, dresses, knitwear, skirts, swimwear, underwear.
-  * "shoes & accessories": footwear (sneakers, boots, heels, flats, loafers), bags (handbags, totes, backpacks), jewelry, watches, sunglasses, hats, belts, scarves.
+  * "shoes & accessories": ALL footwear of any kind (shoes, sneakers, running shoes, trainers, boots, heels, flats, loafers, sandals, mules, slides), bags, handbags, totes, backpacks, wallets, jewelry, watches, sunglasses, hats, belts, scarves.
   * "home & living": furniture, decor, lighting/lamps, candles, tableware, ceramics, glassware, bedding, cushions, rugs, kitchenware.
-  * "tools & tech": electronics, audio/headphones, computer hardware, keyboards, cameras, phone cases, gadgets, desk tools, stationery.
-  * "curios": art prints, framed photography, books, monographs, vinyl records, matchboxes, collectibles, novelties, gifts, unique artifacts.
+  * "tools & tech": electronics, audio/headphones, computer hardware, keyboards, cameras, phone cases, gadgets, desk tools.
+  * "misc": miscellaneous items, art prints, books, collectibles, novelties, gifts, unique artifacts.
 - brand: Extract ONLY if visually branded or explicitly specified in metadata/title; otherwise set to null.
 - colors: 1 to 3 dominant, plain lowercase color names (e.g. ["sand", "charcoal"], ["olive"]).
 - materials: Materials visible or stated (e.g. ["wool", "linen", "terracotta", "leather", "aluminum"]).
@@ -44,7 +44,7 @@ ${input.pageMeta?.price ? `Price hint: "${input.pageMeta.price}"` : ''}
 Respond with valid JSON conforming to this schema:
 {
   "item_type": "string",
-  "category": "clothes" | "shoes & accessories" | "home & living" | "tools & tech" | "curios",
+  "category": "clothes" | "shoes & accessories" | "home & living" | "tools & tech" | "misc",
   "brand": "string" | null,
   "colors": ["string"],
   "materials": ["string"],

@@ -4,6 +4,7 @@ export type Category =
   | 'shoes & accessories'
   | 'home & living'
   | 'tools & tech'
+  | 'misc'
   | 'curios';
 
 export const CATEGORIES: Category[] = [
@@ -12,13 +13,10 @@ export const CATEGORIES: Category[] = [
   'shoes & accessories',
   'home & living',
   'tools & tech',
-  'curios',
+  'misc',
 ];
 
-export const AI_CATEGORIES = CATEGORIES.filter((c) => c !== 'all') as Exclude<
-  Category,
-  'all'
->[];
+export const AI_CATEGORIES = ['clothes', 'shoes & accessories', 'home & living', 'tools & tech', 'misc'] as const;
 
 export type CrumbStatus = 'pending' | 'ready' | 'failed';
 

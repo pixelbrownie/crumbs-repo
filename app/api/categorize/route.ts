@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     const category = AI_CATEGORIES.includes(analysis.category as any)
       ? (analysis.category as Category)
-      : 'curios';
+      : 'misc';
 
     return NextResponse.json({
       category,

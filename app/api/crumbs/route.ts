@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   const searchQuery = searchParams.get('q')?.trim();
   const tag = searchParams.get('tag')?.trim();
 
-  // Auto-heal any crumbs stuck in 'curios' that clearly belong to clothes, shoes, home, or tech
+  // Auto-heal any crumbs stuck in 'curios' — distribute to clothes, shoes, home, tech or misc
   try {
     const { data: curiosCrumbs } = await supabase
       .from('crumbs')
@@ -47,12 +47,10 @@ export async function GET(req: NextRequest) {
     for (const c of curiosCrumbs || []) {
       const combined = `${c.title || ''} ${c.product_url || ''} ${c.item_type || ''}`;
       const detected = detectCategoryFromText(combined);
-      if (detected && detected !== 'curios') {
-        await supabase
-          .from('crumbs')
-          .update({ category: detected })
-          .eq('id', c.id);
-      }
+      await supabase
+        .from('crumbs')
+        .update({ category: detected || 'misc' })
+        .eq('id', c.id);
     }
   } catch (healErr) {
     console.warn('[crumbs] Auto-heal curios error:', healErr);
@@ -76,7 +74,11 @@ export async function GET(req: NextRequest) {
   }
 
   if (category && category !== 'all') {
-    query = query.eq('category', category);
+    if (category === 'misc' || category === 'curios') {
+      query = query.or('category.eq.misc,category.eq.curios');
+    } else {
+      query = query.eq('category', category);
+    }
   }
 
   if (tag) {
@@ -234,4 +236,42 @@ export async function DELETE(req: NextRequest) {
   }
 
   return NextResponse.json({ success: true });
+}
+
+// PATCH /api/crumbs — update category of a crumb
+export async function PATCH(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { id, category } = body;
+  if (!id || !category) {
+    return NextResponse.json({ error: 'id and category are required' }, { status: 400 });
+  }
+
+  const cleanCategory = category === 'curios' ? 'misc' : category;
+
+  const { data, error } = await supabase
+    .from('crumbs')
+    .update({ category: cleanCategory })
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ crumb: data });
 }

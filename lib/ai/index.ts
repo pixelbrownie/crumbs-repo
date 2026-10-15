@@ -56,7 +56,7 @@ export function detectCategoryFromText(text: string): Category | null {
 function extractSmartFallback(input: AnalyzeProductInput): ProductAnalysis {
   const text = `${input.title || ''} ${input.productUrl || ''}`.toLowerCase();
   const detectedCategory = detectCategoryFromText(text);
-  const category: Category = detectedCategory || 'curios';
+  const category: Category = (detectedCategory as Category) || 'misc';
 
   let itemType = 'piece';
   if (category === 'clothes') itemType = 'clothing';

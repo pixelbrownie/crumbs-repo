@@ -5,44 +5,57 @@ export const dynamic = 'force-dynamic';
 import { Suspense, useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
-import { Sparkles, Check, AlertCircle, ArrowRight } from 'lucide-react';
+import { Sparkles, Check, AlertCircle, ArrowRight, Layers } from 'lucide-react';
 import Link from 'next/link';
-import type { Crumb } from '@/types/crumb';
+import type { Crumb, Category } from '@/types/crumb';
+
+const CATEGORY_CHOICES = [
+  'clothes',
+  'shoes & accessories',
+  'home & living',
+  'tools & tech',
+  'misc',
+] as const;
 
 function extractUrlAndTitleFromShare(
   rawText?: string | null,
   rawUrl?: string | null,
   rawTitle?: string | null
-): { targetUrl: string | null; cleanTitle: string | null } {
+): { targetUrl: string | null; cleanTitle: string | null; imageCandidates: string[] } {
   let targetUrl: string | null = null;
   let cleanTitle: string | null = rawTitle?.trim() || null;
+  const imageCandidates: string[] = [];
 
-  // 1. Check direct URL parameter
+  // Check direct URL parameter
   if (rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
     targetUrl = rawUrl.trim();
   }
 
-  // 2. Extract from free-form shared text
-  if (!targetUrl && rawText) {
-    const urls = rawText.match(/https?:\/\/[^\s"'<>]+/gi);
-    if (urls && urls.length > 0) {
-      targetUrl = urls[0].replace(/[),.;!?]+$/, '').trim();
+  // Extract from free-form shared text
+  if (rawText) {
+    const urls = rawText.match(/https?:\/\/[^\s"'<>]+/gi) || [];
+    for (const u of urls) {
+      const clean = u.replace(/[),.;!?]+$/, '').trim();
+      if (/\.(jpg|jpeg|png|webp|avif)(\?.*)?$/i.test(clean)) {
+        imageCandidates.push(clean);
+      } else if (!targetUrl) {
+        targetUrl = clean;
+      }
+    }
 
-      // If no explicit title, extract clean product hint from the preceding text
-      if (!cleanTitle) {
-        const preUrl = rawText.split(urls[0])[0].trim();
-        const cleaned = preUrl
-          .replace(/^(check\s+(this\s+)?out|look\s+at\s+this|found\s+this|loved\s+this\s+product\s+on\s+[a-z0-9&.\s]+:?|i\s+found\s+this)\s*/i, '')
-          .replace(/[:|–—-]+$/, '')
-          .trim();
-        if (cleaned.length >= 3 && cleaned.length <= 100) {
-          cleanTitle = cleaned;
-        }
+    if (!cleanTitle && targetUrl) {
+      const preUrl = rawText.split(targetUrl)[0].trim();
+      const cleaned = preUrl
+        .replace(/^(check\s+(this\s+)?out|look\s+at\s+this|found\s+this|loved\s+this\s+product\s+on\s+[a-z0-9&.\s]+:?|i\s+found\s+this)\s*/i, '')
+        .replace(/[:|–—-]+$/, '')
+        .trim();
+      if (cleaned.length >= 3 && cleaned.length <= 100) {
+        cleanTitle = cleaned;
       }
     }
   }
 
-  // 3. Handle nested wrapped redirect links (e.g. ?url=https%3A%2F%2F...)
+  // Handle nested wrapped redirect links
   if (targetUrl) {
     try {
       const u = new URL(targetUrl);
@@ -55,7 +68,7 @@ function extractUrlAndTitleFromShare(
     }
   }
 
-  return { targetUrl, cleanTitle };
+  return { targetUrl, cleanTitle, imageCandidates };
 }
 
 function ShareHandler() {
@@ -67,6 +80,10 @@ function ShareHandler() {
   const [errorMessage, setErrorMessage] = useState('');
   const [savedCrumb, setSavedCrumb] = useState<Crumb | null>(null);
   const [detectedDomain, setDetectedDomain] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('misc');
+  const [updatingCategory, setUpdatingCategory] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasStartedRef = useRef(false);
 
   useEffect(() => {
@@ -78,7 +95,7 @@ function ShareHandler() {
       const rawUrl = searchParams.get('url');
       const rawTitle = searchParams.get('title');
 
-      const { targetUrl, cleanTitle } = extractUrlAndTitleFromShare(rawText, rawUrl, rawTitle);
+      const { targetUrl, cleanTitle, imageCandidates } = extractUrlAndTitleFromShare(rawText, rawUrl, rawTitle);
 
       if (!targetUrl) {
         setStatus('error');
@@ -96,7 +113,6 @@ function ShareHandler() {
       // Check user session
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        // Redirect to login, preserving destination
         const fullCurrentPath = `/share?${searchParams.toString()}`;
         router.push(`/login?redirect=${encodeURIComponent(fullCurrentPath)}`);
         return;
@@ -111,7 +127,7 @@ function ShareHandler() {
           body: JSON.stringify({
             product_url: targetUrl,
             page_title: cleanTitle || undefined,
-            image_candidates: [],
+            image_candidates: imageCandidates,
           }),
         });
 
@@ -120,13 +136,16 @@ function ShareHandler() {
           throw new Error(data.error || 'Failed to save product');
         }
 
-        setSavedCrumb(data.crumb);
+        const crumb: Crumb = data.crumb;
+        const normalizedCat = crumb.category === 'curios' ? 'misc' : crumb.category;
+        setSavedCrumb({ ...crumb, category: normalizedCat as Category });
+        setSelectedCategory(normalizedCat);
         setStatus('success');
 
-        // Automatically route to the home board after 1.8 seconds
-        setTimeout(() => {
+        // Allow 6 seconds before redirecting, giving user time to adjust category
+        redirectTimerRef.current = setTimeout(() => {
           router.push('/');
-        }, 1800);
+        }, 6000);
       } catch (err) {
         console.error('[share] Error auto-capturing:', err);
         setStatus('error');
@@ -141,10 +160,38 @@ function ShareHandler() {
     handleIncomingShare();
   }, [searchParams, supabase, router]);
 
+  const handleCategorySelect = async (newCat: string) => {
+    if (!savedCrumb || newCat === selectedCategory) return;
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+
+    setSelectedCategory(newCat);
+    setUpdatingCategory(true);
+    setFeedback(`Moving to ${newCat}...`);
+
+    try {
+      const res = await fetch('/api/crumbs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: savedCrumb.id, category: newCat }),
+      });
+      const data = await res.json();
+      if (res.ok && data.crumb) {
+        setSavedCrumb(data.crumb);
+        setFeedback(`Saved to ${newCat}!`);
+      }
+    } catch (err) {
+      console.error('Failed to update category:', err);
+      setFeedback('Failed to change category');
+    } finally {
+      setUpdatingCategory(false);
+      setTimeout(() => setFeedback(null), 3000);
+    }
+  };
+
   return (
-    <div className="w-full max-w-sm mx-auto p-6 bg-surface border border-border/80 rounded-3xl shadow-modal text-center animate-in fade-in zoom-in-95 duration-200">
+    <div className="w-full max-w-sm mx-auto p-5 sm:p-6 bg-surface border border-border/80 rounded-3xl shadow-modal text-center animate-in fade-in zoom-in-95 duration-200">
       {/* Brand header */}
-      <div className="mb-6">
+      <div className="mb-5">
         <span className="text-xl font-sans font-semibold tracking-tight text-ink block">
           crumbs
         </span>
@@ -164,39 +211,100 @@ function ShareHandler() {
               saving piece {detectedDomain ? `from ${detectedDomain}` : ''}...
             </h2>
             <p className="text-xs text-muted mt-1">
-              AI vision is analyzing the item and sorting it into your board.
+              capturing product image and sorting into your board.
             </p>
           </div>
         </div>
       )}
 
-      {/* Success state */}
-      {status === 'success' && (
-        <div className="py-6 space-y-4">
-          <div className="w-14 h-14 mx-auto flex items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200">
-            <Check className="w-7 h-7" strokeWidth={2.5} />
+      {/* Success state with Category Switcher */}
+      {status === 'success' && savedCrumb && (
+        <div className="py-4 space-y-4">
+          {/* Product Thumbnail Preview */}
+          <div className="w-24 h-24 mx-auto rounded-2xl overflow-hidden bg-surface-hover border border-border shadow-soft relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={savedCrumb.image_url || '/placeholder.svg'}
+              alt={savedCrumb.title || 'Saved piece'}
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                if (savedCrumb.original_image_url && (e.currentTarget.src !== savedCrumb.original_image_url)) {
+                  e.currentTarget.src = savedCrumb.original_image_url;
+                } else {
+                  e.currentTarget.src = '/placeholder.svg';
+                }
+              }}
+            />
           </div>
+
           <div>
-            <h2 className="text-base font-semibold text-ink">
-              saved to {savedCrumb?.category || 'your board'}!
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium mb-1">
+              <Check className="w-3.5 h-3.5" />
+              <span>added to crumbs</span>
+            </div>
+
+            <h2 className="text-sm font-semibold text-ink line-clamp-1 mt-1">
+              {savedCrumb.title || 'Product'}
             </h2>
-            {savedCrumb?.brand && (
-              <p className="text-xs text-muted mt-0.5 font-medium">
+            {savedCrumb.brand && (
+              <p className="text-xs text-muted font-medium">
                 {savedCrumb.brand}
               </p>
             )}
-            <p className="text-[11px] text-muted/80 mt-2">
-              taking you to your board...
+          </div>
+
+          {/* Interactive Category Selector */}
+          <div className="pt-2 pb-1 border-t border-border/50">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[11px] font-medium text-muted flex items-center gap-1">
+                <Layers className="w-3 h-3 text-ink-light" />
+                board:
+              </span>
+              {feedback && (
+                <span className="text-[11px] font-semibold text-emerald-600 animate-in fade-in">
+                  {feedback}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 justify-center">
+              {CATEGORY_CHOICES.map((cat) => {
+                const isSelected = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => handleCategorySelect(cat)}
+                    disabled={updatingCategory}
+                    className={`px-3 py-1.5 text-xs rounded-full font-medium transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-ink text-paper shadow-soft font-semibold scale-105'
+                        : 'bg-surface hover:bg-surface-hover border border-border text-muted hover:text-ink'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-muted/70 mt-2">
+              tap any category above to change where this piece goes
             </p>
           </div>
 
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-ink text-paper text-xs font-medium rounded-full hover:bg-ink/90 transition-colors mt-2"
-          >
-            <span>view board</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="pt-1">
+            <button
+              onClick={() => {
+                if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+                router.push('/');
+              }}
+              className="inline-flex items-center justify-center gap-1.5 w-full py-2.5 bg-ink text-paper text-xs font-semibold rounded-full hover:bg-ink/90 transition-colors shadow-soft cursor-pointer"
+            >
+              <span>go to board</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 

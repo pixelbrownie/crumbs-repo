@@ -205,7 +205,7 @@ export async function enrichCrumb(
       status: isSuccess ? 'ready' : 'failed',
       ...(analysis
         ? {
-            category: analysis.category as Category,
+            category: (analysis.category === 'curios' ? 'misc' : analysis.category) as Category,
             item_type: analysis.item_type,
             brand: analysis.brand,
             colors: analysis.colors,
