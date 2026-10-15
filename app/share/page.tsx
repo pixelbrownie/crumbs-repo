@@ -110,7 +110,7 @@ function ShareHandler() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             product_url: targetUrl,
-            page_title: rawTitle || undefined,
+            page_title: cleanTitle || undefined,
             image_candidates: [],
           }),
         });
