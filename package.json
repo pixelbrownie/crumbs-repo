@@ -7,7 +7,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:extension": "npx tsx scripts/build-extension.ts",
+    "icons": "npx tsx scripts/generate-icons.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.134.0",
@@ -30,9 +32,12 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@types/chrome": "^0.3.5",
     "@types/node": "^22.15.29",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
+    "archiver": "^8.0.0",
+    "esbuild": "^0.28.2",
     "eslint": "^9.29.0",
     "eslint-config-next": "^16.4.0",
     "typescript": "^5.8.3"

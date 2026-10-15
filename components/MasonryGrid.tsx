@@ -7,9 +7,10 @@ import type { Crumb } from '@/types/crumb';
 interface MasonryGridProps {
   crumbs: Crumb[];
   onDelete?: (id: string) => void;
+  onUpdate?: (crumb: Crumb) => void;
 }
 
-export default function MasonryGrid({ crumbs, onDelete }: MasonryGridProps) {
+export default function MasonryGrid({ crumbs, onDelete, onUpdate }: MasonryGridProps) {
   if (crumbs.length === 0) {
     return (
       <motion.div
@@ -36,7 +37,7 @@ export default function MasonryGrid({ crumbs, onDelete }: MasonryGridProps) {
     >
       <AnimatePresence mode="popLayout">
         {crumbs.map((crumb) => (
-          <CrumbCard key={crumb.id} crumb={crumb} onDelete={onDelete} />
+          <CrumbCard key={crumb.id} crumb={crumb} onDelete={onDelete} onUpdate={onUpdate} />
         ))}
       </AnimatePresence>
     </div>

@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "crumbs — every piece you love.",
+  "description": "Send any product you love straight into crumbs with one click.",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_title": "Save to crumbs"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://crumbsbypixel.vercel.app/*",
+    "http://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://crumbsbypixel.vercel.app/*",
+        "http://localhost:3000/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "commands": {
+    "save-to-crumbs": {
+      "suggested_key": {
+        "default": "Alt+Shift+S",
+        "mac": "MacCtrl+Shift+S"
+      },
+      "description": "Quick-save active product to crumbs"
+    }
+  }
+}

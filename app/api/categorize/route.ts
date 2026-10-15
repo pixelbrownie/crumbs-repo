@@ -60,13 +60,13 @@ function parseCategoryJson(text: string): string | null {
 function heuristicCategory(text: string): Category {
   const t = text.toLowerCase();
 
-  // Body & Skin
+  // Curios (beauty, perfume, skincare, collectibles, ceramics)
   if (
-    /\b(serum|moisturizer|cleanser|cream|lotion|skin|skincare|perfume|fragrance|cologne|scent|eau de parfum|edp|edt|lipstick|lip tint|lip gloss|lip balm|balm|mascara|blush|foundation|concealer|makeup|cosmetics|haircare|shampoo|conditioner|body wash|sunscreen|spf|toner|retinol|peptide|hyaluronic)\b/.test(
+    /\b(serum|moisturizer|cleanser|cream|lotion|skin|skincare|perfume|fragrance|cologne|scent|eau de parfum|edp|edt|lipstick|lip tint|lip gloss|lip balm|balm|mascara|blush|foundation|concealer|makeup|cosmetics|haircare|shampoo|conditioner|body wash|sunscreen|spf|toner|retinol|peptide|hyaluronic|candle|crystal|vase|ceramic|stationery|book|art)\b/.test(
       t
     )
   ) {
-    return 'body & skin';
+    return 'curios';
   }
 
   // Clothes

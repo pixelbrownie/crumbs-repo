@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>crumbs</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      width: 340px;
+      background-color: #EFEBE4;
+      color: #262523;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+      padding: 16px;
+      user-select: none;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(38, 37, 35, 0.1);
+    }
+    .brand-title {
+      font-family: "Georgia", "Times New Roman", serif;
+      font-size: 18px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+    .brand-tagline {
+      font-size: 11px;
+      color: #736f68;
+    }
+    .settings-link {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #736f68;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .settings-link:hover {
+      background: rgba(38, 37, 35, 0.06);
+      color: #262523;
+    }
+    .view-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .hidden {
+      display: none !important;
+    }
+    /* Connect state */
+    .connect-card {
+      text-align: center;
+      padding: 24px 12px;
+      background: #faf8f5;
+      border: 1px solid rgba(38, 37, 35, 0.08);
+      border-radius: 12px;
+    }
+    .connect-card h3 {
+      font-family: "Georgia", serif;
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .connect-card p {
+      font-size: 12px;
+      color: #736f68;
+      margin-bottom: 16px;
+    }
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      background: #262523;
+      color: #FAF8F5;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity 0.15s, transform 0.05s;
+    }
+    .btn-primary:hover:not(:disabled) {
+      opacity: 0.92;
+    }
+    .btn-primary:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: transparent;
+      color: #736f68;
+      border: 1px solid rgba(38, 37, 35, 0.15);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover {
+      background: rgba(38, 37, 35, 0.04);
+      color: #262523;
+    }
+    /* Grid candidates */
+    .section-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #736f68;
+      margin-bottom: 4px;
+    }
+    .candidate-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      max-height: 190px;
+      overflow-y: auto;
+      padding: 2px;
+    }
+    .candidate-item {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+      background: #e7e2d9;
+      border: 2px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .candidate-item:hover {
+      border-color: rgba(38, 37, 35, 0.3);
+    }
+    .candidate-item.selected {
+      border-color: #262523;
+      box-shadow: 0 0 0 1px #262523;
+    }
+    .candidate-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .selected-badge {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: #262523;
+      color: white;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    /* Inputs */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .input-field {
+      width: 100%;
+      background: #FAF8F5;
+      border: 1px solid rgba(38, 37, 35, 0.15);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #262523;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .input-field:focus {
+      border-color: #262523;
+    }
+    /* Status feedback */
+    .status-badge {
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      text-align: center;
+    }
+    .status-badge.success {
+      background: rgba(38, 37, 35, 0.05);
+      border: 1px solid rgba(38, 37, 35, 0.12);
+    }
+    .status-badge.error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+    .view-link {
+      color: #262523;
+      text-decoration: underline;
+      cursor: pointer;
+      font-weight: 500;
+      margin-top: 4px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="brand-title">crumbs</div>
+      <div class="brand-tagline">every piece you love.</div>
+    </div>
+    <button id="btn-settings" class="settings-link" title="Settings">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Connect Prompt View -->
+  <div id="view-unauthenticated" class="view-container hidden">
+    <div class="connect-card">
+      <h3>welcome to crumbs</h3>
+      <p>Connect your account to send pieces straight from the web into your board.</p>
+      <button id="btn-connect" class="btn-primary">Connect crumbs</button>
+      <button id="btn-manual-token" class="btn-secondary">Enter token manually</button>
+    </div>
+  </div>
+
+  <!-- Capture View -->
+  <div id="view-capture" class="view-container hidden">
+    <div>
+      <div class="section-label">Select image</div>
+      <div id="candidate-grid" class="candidate-grid"></div>
+    </div>
+
+    <div class="input-group">
+      <label for="input-title" class="section-label">Title / notes</label>
+      <input type="text" id="input-title" class="input-field" placeholder="Piece name...">
+    </div>
+
+    <button id="btn-save" class="btn-primary">
+      <span id="btn-save-text">Save piece</span>
+    </button>
+
+    <div id="status-container" class="status-badge hidden"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

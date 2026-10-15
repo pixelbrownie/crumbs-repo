@@ -30,6 +30,9 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const category = searchParams.get('category');
+  const collectionId = searchParams.get('collection_id');
+  const searchQuery = searchParams.get('q')?.trim();
+  const tag = searchParams.get('tag')?.trim();
 
   let query = supabase
     .from('crumbs')
@@ -37,8 +40,29 @@ export async function GET(req: NextRequest) {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
+  if (collectionId) {
+    // Filter through crumb_collections join
+    const { data: colCrumbs } = await supabase
+      .from('crumb_collections')
+      .select('crumb_id')
+      .eq('collection_id', collectionId);
+
+    const ids = (colCrumbs || []).map((r: any) => r.crumb_id);
+    query = query.in('id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000']);
+  }
+
   if (category && category !== 'all') {
     query = query.eq('category', category);
+  }
+
+  if (tag) {
+    query = query.contains('tags', [tag.toLowerCase()]);
+  }
+
+  if (searchQuery) {
+    query = query.or(
+      `title.ilike.%${searchQuery}%,brand.ilike.%${searchQuery}%,item_type.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%`
+    );
   }
 
   const { data, error } = await query;

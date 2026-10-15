@@ -2,30 +2,48 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
 import AddCrumbModal from '@/components/AddCrumbModal';
-import type { Category, Crumb } from '@/types/crumb';
+import Toast, { type ToastMessage } from '@/components/Toast';
+import type { Category, Collection, Crumb } from '@/types/crumb';
+import { createClient } from '@/lib/supabase';
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [crumbs, setCrumbs] = useState<Crumb[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [activeCategory, setActiveCategory] = useState<Category>('all');
+  const [activeCollection, setActiveCollection] = useState<Collection | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const supabase = createClient();
+
+  const addToast = useCallback((type: 'info' | 'success' | 'error', title: string, subtitle?: string) => {
+    const id = Math.random().toString(36).slice(2, 9);
+    setToasts((prev) => [...prev, { id, type, title, subtitle }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  }, []);
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Auth listener — only runs in browser
+  // Auth listener
   useEffect(() => {
     if (!mounted) return;
-
-    const { createClient } = require('@/lib/supabase');
-    const supabase = createClient();
 
     supabase.auth.getUser().then(({ data }: { data: { user: User | null } }) => {
       setUser(data.user);
@@ -42,40 +60,148 @@ export default function DashboardPage() {
     );
 
     return () => listener.subscription.unsubscribe();
-  }, [mounted]);
+  }, [mounted, supabase]);
 
-  // Fetch crumbs
-  const fetchCrumbs = useCallback(async (category: Category) => {
-    setLoading(true);
+  // Fetch collections
+  const fetchCollections = useCallback(async () => {
     try {
-      const params = category !== 'all' ? `?category=${encodeURIComponent(category)}` : '';
-      const res = await fetch(`/api/crumbs${params}`);
-      if (!res.ok) throw new Error('Failed to fetch');
-      const { crumbs: data } = await res.json();
-      setCrumbs(data ?? []);
+      const res = await fetch('/api/collections');
+      if (res.ok) {
+        const data = await res.json();
+        setCollections(data.collections || []);
+      }
     } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+      console.warn('Failed to fetch collections:', err);
     }
   }, []);
 
+  // Fetch crumbs
+  const fetchCrumbs = useCallback(
+    async (cat: Category, col: Collection | null, query: string, showSpinner = true) => {
+      if (showSpinner) setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (cat !== 'all') params.set('category', cat);
+        if (col) params.set('collection_id', col.id);
+        if (query.trim()) params.set('q', query.trim());
+
+        const url = `/api/crumbs${params.toString() ? `?${params.toString()}` : ''}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch crumbs');
+        const { crumbs: data } = await res.json();
+        setCrumbs(data ?? []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (showSpinner) setLoading(false);
+      }
+    },
+    []
+  );
+
+  // Trigger crumb fetch when filters change
   useEffect(() => {
-    if (user) fetchCrumbs(activeCategory);
-  }, [user, activeCategory, fetchCrumbs]);
+    if (user) {
+      fetchCrumbs(activeCategory, activeCollection, searchQuery);
+      fetchCollections();
+    }
+  }, [user, activeCategory, activeCollection, searchQuery, fetchCrumbs, fetchCollections]);
+
+  // Realtime subscription on `crumbs` table
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('realtime:crumbs')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'crumbs',
+          filter: `user_id=eq.${user.id}`,
+        },
+        async (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            const newCrumb = payload.new as Crumb;
+            // Prepend new crumb
+            setCrumbs((prev) => {
+              if (prev.some((c) => c.id === newCrumb.id)) return prev;
+              return [newCrumb, ...prev];
+            });
+            addToast('info', 'piece captured', 'AI is analyzing and tagging...');
+            fetchCollections();
+          } else if (payload.eventType === 'UPDATE') {
+            const updated = payload.new as Crumb;
+            setCrumbs((prev) =>
+              prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
+            );
+            if (updated.status === 'ready') {
+              addToast('success', 'piece ready', `${updated.category}${updated.brand ? ` · ${updated.brand}` : ''}`);
+              fetchCollections();
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setCrumbs((prev) => prev.filter((c) => c.id !== payload.old.id));
+            fetchCollections();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase, addToast, fetchCollections]);
+
+  // Short polling fallback for pending crumbs
+  useEffect(() => {
+    const hasPending = crumbs.some((c) => c.status === 'pending');
+
+    if (hasPending && !pollTimerRef.current) {
+      pollTimerRef.current = setInterval(() => {
+        fetchCrumbs(activeCategory, activeCollection, searchQuery, false);
+        fetchCollections();
+      }, 3500);
+    } else if (!hasPending && pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [crumbs, activeCategory, activeCollection, searchQuery, fetchCrumbs, fetchCollections]);
 
   const handleCategoryChange = (cat: Category) => {
     setActiveCategory(cat);
+    setActiveCollection(null);
+  };
+
+  const handleSelectCollection = (col: Collection | null) => {
+    setActiveCollection(col);
+    if (col) setActiveCategory('all');
   };
 
   const handleAdd = (crumb: Crumb) => {
-    if (activeCategory === 'all' || crumb.category === activeCategory) {
-      setCrumbs((prev) => [crumb, ...prev]);
-    }
+    setCrumbs((prev) => [crumb, ...prev]);
+    fetchCollections();
+    addToast('success', 'piece added');
   };
 
   const handleDelete = (id: string) => {
     setCrumbs((prev) => prev.filter((c) => c.id !== id));
+    fetchCollections();
+  };
+
+  const handleUpdate = (updatedCrumb: Crumb) => {
+    setCrumbs((prev) =>
+      prev.map((c) => (c.id === updatedCrumb.id ? updatedCrumb : c))
+    );
+    fetchCollections();
+    addToast('success', 'piece re-sorted', `${updatedCrumb.category}${updatedCrumb.brand ? ` · ${updatedCrumb.brand}` : ''}`);
   };
 
   if (!mounted) {
@@ -92,6 +218,11 @@ export default function DashboardPage() {
         user={user}
         activeCategory={activeCategory}
         onCategoryChange={handleCategoryChange}
+        collections={collections}
+        activeCollection={activeCollection}
+        onSelectCollection={handleSelectCollection}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -106,11 +237,16 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : (
-          <MasonryGrid crumbs={crumbs} onDelete={handleDelete} />
+          <MasonryGrid
+            crumbs={crumbs}
+            onDelete={handleDelete}
+            onUpdate={handleUpdate}
+          />
         )}
       </main>
 
       {user && <AddCrumbModal onAdd={handleAdd} />}
+      <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

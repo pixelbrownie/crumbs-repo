@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>crumbs — extension settings</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #EFEBE4;
+      color: #262523;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 32px 16px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .brand-title {
+      font-family: "Georgia", "Times New Roman", serif;
+      font-size: 26px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+    .brand-tagline {
+      font-size: 13px;
+      color: #736f68;
+    }
+    .card {
+      background: #FAF8F5;
+      border: 1px solid rgba(38, 37, 35, 0.1);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 1px 3px rgba(38, 37, 35, 0.04);
+    }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(38, 37, 35, 0.04);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #9ca3af;
+    }
+    .status-dot.connected {
+      background: #16a34a;
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #736f68;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    input {
+      width: 100%;
+      background: #FAF8F5;
+      border: 1px solid rgba(38, 37, 35, 0.18);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #262523;
+      outline: none;
+      font-family: monospace;
+      transition: border-color 0.15s;
+    }
+    input:focus {
+      border-color: #262523;
+    }
+    .help-text {
+      font-size: 12px;
+      color: #736f68;
+    }
+    .help-text a {
+      color: #262523;
+      text-decoration: underline;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    button {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-primary {
+      background: #262523;
+      color: #FAF8F5;
+      border: none;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid rgba(38, 37, 35, 0.18);
+      color: #262523;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .feedback {
+      font-size: 12px;
+      text-align: center;
+      padding: 8px;
+      border-radius: 6px;
+    }
+    .feedback.success {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    .feedback.error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand-title">crumbs</div>
+      <div class="brand-tagline">extension settings</div>
+    </header>
+
+    <div class="card">
+      <div id="status-box" class="status-indicator">
+        <span id="status-dot" class="status-dot"></span>
+        <span id="status-label">Checking connection...</span>
+      </div>
+
+      <div class="field-group">
+        <label for="input-token">Capture Token</label>
+        <input type="password" id="input-token" placeholder="crm_live_...">
+        <div class="help-text">
+          Generate this from your <a id="link-dashboard-token" href="https://crumbsbypixel.vercel.app/settings" target="_blank">crumbs settings page</a>.
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="input-api-url">Crumbs Server URL</label>
+        <input type="text" id="input-api-url" value="https://crumbsbypixel.vercel.app">
+        <div class="help-text">Default is https://crumbsbypixel.vercel.app</div>
+      </div>
+
+      <div class="actions">
+        <button id="btn-save" class="btn-primary">Save Settings</button>
+        <button id="btn-disconnect" class="btn-secondary">Disconnect</button>
+      </div>
+
+      <div id="feedback" class="feedback hidden"></div>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

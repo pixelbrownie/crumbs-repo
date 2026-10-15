@@ -12,7 +12,6 @@ const LABELS: Record<Category, string> = {
   all: 'all',
   clothes: 'clothes',
   'shoes & accessories': 'shoes & accessories',
-  'body & skin': 'body & skin',
   'home & living': 'home & living',
   'tools & tech': 'tools & tech',
   curios: 'curios',

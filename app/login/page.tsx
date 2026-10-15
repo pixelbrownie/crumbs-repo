@@ -19,8 +19,16 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-    const initialMode = new URLSearchParams(window.location.search).get('mode');
+    const searchParams = new URLSearchParams(window.location.search);
+    const initialMode = searchParams.get('mode');
     if (initialMode === 'signup') setMode('signup');
+    const urlError = searchParams.get('error');
+    if (urlError) {
+      setMessage({
+        type: 'error',
+        text: urlError === 'auth' ? 'Authentication failed. Please check your credentials.' : decodeURIComponent(urlError),
+      });
+    }
   }, []);
 
   const getSupabase = () => {
@@ -82,9 +90,15 @@ export default function LoginPage() {
   const handleGoogle = async () => {
     setGoogleLoading(true);
     const supabase = getSupabase();
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectTarget = searchParams.get('redirect') || searchParams.get('next');
+    const callbackUrl = new URL('/auth/callback', window.location.origin);
+    if (redirectTarget) {
+      callbackUrl.searchParams.set('next', redirectTarget);
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl.toString() },
     });
     if (error) {
       setMessage({ type: 'error', text: error.message });

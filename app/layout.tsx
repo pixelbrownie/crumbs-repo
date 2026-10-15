@@ -4,7 +4,7 @@ import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'crumbs — every piece you love.',
+  title: 'crumbs',
   description:
     'A minimalist, visual wishlist board. Save, categorize, and revisit the things you love.',
   metadataBase: new URL('https://crumbs.vercel.app'),
