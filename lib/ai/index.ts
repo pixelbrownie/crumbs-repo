@@ -11,8 +11,24 @@ import { analyzeWithGrok } from './grok';
 
 export * from './types';
 
-export function detectCategoryFromText(text: string): Category | null {
+export function detectCategoryFromText(
+  text: string,
+  customCategories?: string[]
+): string | null {
   const t = text.toLowerCase();
+
+  // 1. Check custom categories first (user preferences take priority!)
+  if (customCategories && customCategories.length > 0) {
+    for (const customCat of customCategories) {
+      const c = customCat.trim().toLowerCase();
+      if (!c || c === 'all' || c === 'misc') continue;
+      const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`(^|\\W)${escaped}(\\W|$)`, 'i');
+      if (pattern.test(t)) {
+        return c;
+      }
+    }
+  }
 
   // Clothes: tops, bottoms, outerwear, dresses, knitwear, activewear, intimates
   if (
@@ -55,8 +71,8 @@ export function detectCategoryFromText(text: string): Category | null {
 
 function extractSmartFallback(input: AnalyzeProductInput): ProductAnalysis {
   const text = `${input.title || ''} ${input.productUrl || ''}`.toLowerCase();
-  const detectedCategory = detectCategoryFromText(text);
-  const category: Category = (detectedCategory as Category) || 'misc';
+  const detectedCategory = detectCategoryFromText(text, input.customCategories);
+  const category: string = detectedCategory || 'misc';
 
   let itemType = 'piece';
   if (category === 'clothes') itemType = 'clothing';

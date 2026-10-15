@@ -1,19 +1,24 @@
 import { z } from 'zod';
 
-export const CATEGORIES = [
+export const STANDARD_CATEGORIES = [
   'clothes',
   'shoes & accessories',
   'home & living',
   'tools & tech',
   'misc',
+] as const;
+
+export const CATEGORIES = [
+  ...STANDARD_CATEGORIES,
   'curios',
 ] as const;
 
-export type Category = (typeof CATEGORIES)[number];
+export type StandardCategory = (typeof STANDARD_CATEGORIES)[number];
+export type Category = string;
 
 export const ProductAnalysisSchema = z.object({
   item_type: z.string().describe('Precise specific product type, e.g. "trench coat", "ballet flat", "candle", "armchair"'),
-  category: z.enum(CATEGORIES).describe('The single best matching category out of the 5 allowed categories'),
+  category: z.string().describe('The single best matching category or custom board'),
   brand: z.string().nullable().describe('Brand name if visibly branded or explicitly mentioned in title/meta, otherwise null'),
   colors: z.array(z.string()).min(1).max(3).describe('1 to 3 dominant color names, plain lowercase words like "sand", "black", "olive"'),
   materials: z.array(z.string()).describe('Materials detected from image or title, e.g. ["wool", "leather", "linen", "ceramic"]'),
@@ -29,6 +34,7 @@ export interface AnalyzeProductInput {
   mimeType?: string;
   title?: string;
   productUrl?: string;
+  customCategories?: string[];
   pageMeta?: {
     brand?: string | null;
     price?: string | null;

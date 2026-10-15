@@ -169,7 +169,8 @@ export async function POST(req: NextRequest) {
     ) ||
     !isHttpUrl(product_url) ||
     typeof category !== 'string' ||
-    !AI_CATEGORIES.includes(category as (typeof AI_CATEGORIES)[number]) ||
+    !category.trim() ||
+    category.trim().length > 60 ||
     (title !== undefined && title !== null && typeof title !== 'string')
   ) {
     return NextResponse.json(

@@ -179,7 +179,22 @@ export async function enrichCrumb(
       }
     }
 
-    // 3. AI Vision Analysis
+    // 3. AI Vision Analysis (query user custom boards to prioritize them)
+    let userCustomCategories: string[] = [];
+    try {
+      const { data: userCols } = await supabase
+        .from('collections')
+        .select('name')
+        .eq('user_id', userId);
+      if (userCols && userCols.length > 0) {
+        userCustomCategories = userCols
+          .map((c: { name: string }) => c.name?.toLowerCase().trim())
+          .filter(Boolean);
+      }
+    } catch (colErr) {
+      console.warn('[lib/enrichment] Error querying custom collections:', colErr);
+    }
+
     let analysis;
     try {
       analysis = await analyzeProduct({
@@ -188,6 +203,7 @@ export async function enrichCrumb(
         title: title || undefined,
         productUrl,
         pageMeta,
+        customCategories: userCustomCategories,
       });
     } catch (aiErr) {
       console.error('[lib/enrichment] AI analysis error:', aiErr);

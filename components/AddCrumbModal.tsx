@@ -9,11 +9,12 @@ import ImageRectangleCropper from './ImageRectangleCropper';
 
 interface AddCrumbModalProps {
   onAdd: (crumb: Crumb) => void;
+  customCategories?: string[];
 }
 
 type InputMode = 'file' | 'url';
 
-export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
+export default function AddCrumbModal({ onAdd, customCategories = [] }: AddCrumbModalProps) {
   const [open, setOpen] = useState(false);
   const [inputMode, setInputMode] = useState<InputMode>('url');
   const [imageUrl, setImageUrl] = useState('');
@@ -452,10 +453,28 @@ export default function AddCrumbModal({ onAdd }: AddCrumbModalProps) {
                       <option value="auto">✨ AI Auto-sort (recommended)</option>
                       <option value="clothes">clothes (dresses, tops, jackets, pants)</option>
                       <option value="shoes & accessories">shoes & accessories (bags, shoes, jewelry)</option>
-                      <option value="body & skin">body & skin (skincare, makeup, perfume)</option>
                       <option value="home & living">home & living (decor, candles, furniture)</option>
                       <option value="tools & tech">tools & tech (gadgets, audio, desk)</option>
                       <option value="misc">misc (art, books, unique finds)</option>
+                      {customCategories
+                        .filter(
+                          (c) =>
+                            c &&
+                            ![
+                              'clothes',
+                              'shoes & accessories',
+                              'home & living',
+                              'tools & tech',
+                              'misc',
+                              'curios',
+                              'all',
+                            ].includes(c.toLowerCase().trim())
+                        )
+                        .map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat} (your board)
+                          </option>
+                        ))}
                     </select>
                   </div>
 

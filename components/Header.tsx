@@ -12,6 +12,9 @@ interface HeaderProps {
   user: User | null;
   activeCategory: Category;
   onCategoryChange: (cat: Category) => void;
+  customCategories?: string[];
+  onAddCategory?: (name: string) => Promise<void> | void;
+  onDeleteCategory?: (name: string) => Promise<void> | void;
   collections?: Collection[];
   activeCollection?: Collection | null;
   onSelectCollection?: (col: Collection | null) => void;
@@ -23,6 +26,9 @@ export default function Header({
   user,
   activeCategory,
   onCategoryChange,
+  customCategories = [],
+  onAddCategory,
+  onDeleteCategory,
   collections = [],
   activeCollection = null,
   onSelectCollection,
@@ -53,6 +59,9 @@ export default function Header({
             <CategoryTabs
               active={activeCategory}
               onChange={onCategoryChange}
+              customCategories={customCategories}
+              onAddCategory={onAddCategory}
+              onDeleteCategory={onDeleteCategory}
             />
           </div>
 

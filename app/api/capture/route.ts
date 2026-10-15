@@ -153,7 +153,23 @@ export async function POST(req: NextRequest) {
   // Immediate placeholder URL until rehosted
   const initialImageUrl = candidates[0] || '/placeholder.svg';
 
-  const detectedCat = detectCategoryFromText(`${finalTitle || ''} ${product_url}`);
+  let customCategories: string[] = [];
+  try {
+    const { data: userCols } = await supabase
+      .from('collections')
+      .select('name')
+      .eq('user_id', userId);
+    if (userCols && userCols.length > 0) {
+      customCategories = userCols
+        .map((c: { name: string }) => c.name?.toLowerCase().trim())
+        .filter(Boolean);
+    }
+  } catch {}
+
+  const detectedCat = detectCategoryFromText(
+    `${finalTitle || ''} ${product_url}`,
+    customCategories
+  );
   const initialCategory =
     (parsed.data.category as any) ||
     detectedCat ||

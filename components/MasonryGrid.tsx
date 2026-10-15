@@ -9,6 +9,7 @@ interface MasonryGridProps {
   onDelete?: (id: string) => void;
   onUpdate?: (crumb: Crumb) => void;
   readOnly?: boolean;
+  customCategories?: string[];
 }
 
 export default function MasonryGrid({
@@ -16,6 +17,7 @@ export default function MasonryGrid({
   onDelete,
   onUpdate,
   readOnly = false,
+  customCategories = [],
 }: MasonryGridProps) {
   if (crumbs.length === 0) {
     return (
@@ -49,6 +51,7 @@ export default function MasonryGrid({
             onDelete={onDelete}
             onUpdate={onUpdate}
             readOnly={readOnly}
+            customCategories={customCategories}
           />
         ))}
       </AnimatePresence>

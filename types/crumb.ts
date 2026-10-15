@@ -5,9 +5,10 @@ export type Category =
   | 'home & living'
   | 'tools & tech'
   | 'misc'
-  | 'curios';
+  | 'curios'
+  | (string & {});
 
-export const CATEGORIES: Category[] = [
+export const DEFAULT_CATEGORIES: Category[] = [
   'all',
   'clothes',
   'shoes & accessories',
@@ -15,6 +16,8 @@ export const CATEGORIES: Category[] = [
   'tools & tech',
   'misc',
 ];
+
+export const CATEGORIES = DEFAULT_CATEGORIES;
 
 export const AI_CATEGORIES = ['clothes', 'shoes & accessories', 'home & living', 'tools & tech', 'misc'] as const;
 

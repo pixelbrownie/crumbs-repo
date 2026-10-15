@@ -81,6 +81,7 @@ function ShareHandler() {
   const [savedCrumb, setSavedCrumb] = useState<Crumb | null>(null);
   const [detectedDomain, setDetectedDomain] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('misc');
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [updatingCategory, setUpdatingCategory] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -91,6 +92,18 @@ function ShareHandler() {
     hasStartedRef.current = true;
 
     async function handleIncomingShare() {
+      // Fetch user's custom boards
+      fetch('/api/collections')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.collections) {
+            const customs = data.collections
+              .filter((c: any) => c.kind === 'custom')
+              .map((c: any) => c.name.toLowerCase().trim());
+            setCustomCategories(customs);
+          }
+        })
+        .catch(() => {});
       const rawText = searchParams.get('text');
       const rawUrl = searchParams.get('url');
       const rawTitle = searchParams.get('title');
@@ -269,8 +282,13 @@ function ShareHandler() {
             </div>
 
             <div className="flex flex-wrap gap-1.5 justify-center">
-              {CATEGORY_CHOICES.map((cat) => {
-                const isSelected = selectedCategory === cat;
+              {[
+                ...CATEGORY_CHOICES,
+                ...customCategories.filter(
+                  (c) => !CATEGORY_CHOICES.includes(c as any) && c !== 'curios' && c !== 'all'
+                ),
+              ].map((cat) => {
+                const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
                 return (
                   <button
                     key={cat}

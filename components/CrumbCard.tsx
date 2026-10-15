@@ -10,6 +10,7 @@ interface CrumbCardProps {
   onDelete?: (id: string) => void;
   onUpdate?: (crumb: Crumb) => void;
   readOnly?: boolean;
+  customCategories?: string[];
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -27,6 +28,7 @@ export default function CrumbCard({
   onDelete,
   onUpdate,
   readOnly = false,
+  customCategories = [],
 }: CrumbCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [currentSrc, setCurrentSrc] = useState(crumb.image_url);
@@ -293,7 +295,7 @@ export default function CrumbCard({
                           key={cat}
                           type="button"
                           onClick={(e) => handleCategorySelect(e, cat)}
-                          className={`text-left px-2 py-1.5 text-xs rounded-xl font-medium transition-colors ${
+                          className={`text-left px-2 py-1.5 text-xs rounded-xl font-medium transition-colors cursor-pointer ${
                             displayCategory === cat
                               ? 'bg-ink text-white font-semibold'
                               : 'text-ink hover:bg-surface-hover'
@@ -302,6 +304,56 @@ export default function CrumbCard({
                           {cat}
                         </button>
                       )
+                    )}
+
+                    {/* Custom user boards */}
+                    {customCategories.filter(
+                      (c) =>
+                        c &&
+                        ![
+                          'clothes',
+                          'shoes & accessories',
+                          'home & living',
+                          'tools & tech',
+                          'misc',
+                          'curios',
+                          'all',
+                        ].includes(c.toLowerCase().trim())
+                    ).length > 0 && (
+                      <>
+                        <div className="w-full h-px bg-border my-1" />
+                        <span className="text-[9px] uppercase tracking-wider text-muted font-semibold px-2 py-0.5">
+                          your boards
+                        </span>
+                        {customCategories
+                          .filter(
+                            (c) =>
+                              c &&
+                              ![
+                                'clothes',
+                                'shoes & accessories',
+                                'home & living',
+                                'tools & tech',
+                                'misc',
+                                'curios',
+                                'all',
+                              ].includes(c.toLowerCase().trim())
+                          )
+                          .map((customCat) => (
+                            <button
+                              key={customCat}
+                              type="button"
+                              onClick={(e) => handleCategorySelect(e, customCat)}
+                              className={`text-left px-2 py-1.5 text-xs rounded-xl font-medium transition-colors cursor-pointer ${
+                                displayCategory.toLowerCase() === customCat.toLowerCase()
+                                  ? 'bg-ink text-white font-semibold'
+                                  : 'text-ink hover:bg-surface-hover'
+                              }`}
+                            >
+                              {customCat}
+                            </button>
+                          ))}
+                      </>
                     )}
                   </div>
                 )}

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { User } from '@supabase/supabase-js';
 import Header from '@/components/Header';
 import MasonryGrid from '@/components/MasonryGrid';
@@ -215,6 +215,55 @@ export default function DashboardPage() {
     addToast('success', 'piece re-sorted', `${updatedCrumb.category}${updatedCrumb.brand ? ` · ${updatedCrumb.brand}` : ''}`);
   };
 
+  const customCategories = useMemo(() => {
+    return collections
+      .filter((c) => c.kind === 'custom')
+      .map((c) => c.name.toLowerCase().trim())
+      .filter(Boolean);
+  }, [collections]);
+
+  const handleAddBoard = async (name: string) => {
+    try {
+      const res = await fetch('/api/collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (res.ok && data.collection) {
+        addToast('success', 'board created', `created board "${data.collection.name}"`);
+        await fetchCollections();
+        handleCategoryChange(data.collection.name as Category);
+      } else {
+        addToast('error', 'could not create board', data.error || 'Something went wrong');
+      }
+    } catch {
+      addToast('error', 'error', 'Failed to connect to server');
+    }
+  };
+
+  const handleDeleteBoard = async (name: string) => {
+    try {
+      const res = await fetch(`/api/collections?name=${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        addToast('info', 'board deleted', `removed "${name}"`);
+        await fetchCollections();
+        if (activeCategory.toLowerCase() === name.toLowerCase()) {
+          handleCategoryChange('all');
+        } else {
+          fetchCrumbs(activeCategory, activeCollection, searchQuery);
+        }
+      } else {
+        addToast('error', 'delete failed', data.error || 'Could not delete board');
+      }
+    } catch {
+      addToast('error', 'error', 'Failed to connect to server');
+    }
+  };
+
   const [resortingAll, setResortingAll] = useState(false);
 
   const handleResortAll = async () => {
@@ -295,6 +344,9 @@ export default function DashboardPage() {
         user={user}
         activeCategory={activeCategory}
         onCategoryChange={handleCategoryChange}
+        customCategories={customCategories}
+        onAddCategory={handleAddBoard}
+        onDeleteCategory={handleDeleteBoard}
         collections={collections}
         activeCollection={activeCollection}
         onSelectCollection={handleSelectCollection}
@@ -319,11 +371,12 @@ export default function DashboardPage() {
             crumbs={crumbs}
             onDelete={handleDelete}
             onUpdate={handleUpdate}
+            customCategories={customCategories}
           />
         )}
       </main>
 
-      {user && <AddCrumbModal onAdd={handleAdd} />}
+      {user && <AddCrumbModal onAdd={handleAdd} customCategories={customCategories} />}
       <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

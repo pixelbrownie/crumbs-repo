@@ -146,8 +146,30 @@ export default function UserProfilePage({
   // Filter crumbs by selected category
   const filteredCrumbs = useMemo(() => {
     if (activeCategory === 'all') return crumbs;
-    return crumbs.filter((c) => c.category === activeCategory);
+    return crumbs.filter((c) => c.category?.toLowerCase() === activeCategory.toLowerCase());
   }, [crumbs, activeCategory]);
+
+  const profileCustomCategories = useMemo(() => {
+    return Array.from(
+      new Set(
+        crumbs
+          .map((c) => c.category?.toLowerCase().trim())
+          .filter(
+            (c) =>
+              Boolean(c) &&
+              ![
+                'all',
+                'clothes',
+                'shoes & accessories',
+                'home & living',
+                'tools & tech',
+                'misc',
+                'curios',
+              ].includes(c)
+          )
+      )
+    );
+  }, [crumbs]);
 
   const displayName = profile?.display_name || cleanUsername;
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -158,6 +180,7 @@ export default function UserProfilePage({
         user={currentUser}
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
+        customCategories={profileCustomCategories}
       />
 
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex-1 w-full">
@@ -304,6 +327,7 @@ export default function UserProfilePage({
                       <CategoryTabs
                         active={activeCategory}
                         onChange={setActiveCategory}
+                        customCategories={profileCustomCategories}
                       />
                     </div>
                   )}
@@ -311,6 +335,7 @@ export default function UserProfilePage({
                   <MasonryGrid
                     crumbs={filteredCrumbs}
                     readOnly={!isOwner}
+                    customCategories={profileCustomCategories}
                   />
                 </>
               )}

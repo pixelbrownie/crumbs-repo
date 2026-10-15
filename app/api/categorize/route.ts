@@ -70,15 +70,35 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // 3. Run full provider-agnostic AI Vision Pipeline
+    // 3. Fetch user's custom boards to prioritize
+    let customCategories: string[] = [];
+    try {
+      const { data: userCols } = await supabase
+        .from('collections')
+        .select('name')
+        .eq('user_id', user.id);
+      if (userCols && userCols.length > 0) {
+        customCategories = userCols
+          .map((c: { name: string }) => c.name?.toLowerCase().trim())
+          .filter(Boolean);
+      }
+    } catch (colErr) {
+      console.warn('[categorize] Error querying custom collections:', colErr);
+    }
+
+    // 4. Run full provider-agnostic AI Vision Pipeline
     const analysis = await analyzeProduct({
       imageBytes,
       mimeType,
       title: safeTitle,
       productUrl: safeProductUrl,
+      customCategories,
     });
 
-    const category = AI_CATEGORIES.includes(analysis.category as any)
+    const isCustom = customCategories.includes(analysis.category.toLowerCase().trim());
+    const category = isCustom
+      ? analysis.category
+      : AI_CATEGORIES.includes(analysis.category as any)
       ? (analysis.category as Category)
       : 'misc';
 
