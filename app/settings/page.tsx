@@ -61,6 +61,15 @@ export default function SettingsPage() {
           '';
         setDisplayName(name);
         loadTokens();
+
+        // Self-heal any user account with an oversized data-URI in user_metadata
+        if (user.user_metadata?.avatar_url?.startsWith('data:')) {
+          supabase.auth.updateUser({
+            data: { avatar_url: null },
+          }).then(({ data }) => {
+            if (data?.user) setUser(data.user);
+          });
+        }
       }
     });
   }, [router, supabase]);
@@ -123,7 +132,7 @@ export default function SettingsPage() {
     setProfileSuccess(null);
     setProfileError(null);
 
-    // Read and compress image to 256x256 square crop for instant loading
+    // Read and compress image to 256x256 square crop
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -141,23 +150,40 @@ export default function SettingsPage() {
           const sy = (img.height - minDim) / 2;
           ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
 
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              setProfileError('Could not process image blob');
+              setUploadingAvatar(false);
+              return;
+            }
 
-          const { data, error } = await supabase.auth.updateUser({
-            data: {
-              avatar_url: dataUrl,
-            },
-          });
+            try {
+              const formData = new FormData();
+              formData.append('file', blob, 'avatar.jpg');
 
-          if (error) throw error;
-          if (data.user) {
-            setUser(data.user);
-          }
-          setProfileSuccess('Profile picture updated.');
-          setTimeout(() => setProfileSuccess(null), 3500);
+              const res = await fetch('/api/user/avatar', {
+                method: 'POST',
+                body: formData,
+              });
+
+              const result = await res.json();
+              if (!res.ok) {
+                throw new Error(result.error || 'Failed to upload photo');
+              }
+
+              if (result.user) {
+                setUser(result.user);
+              }
+              setProfileSuccess('Profile picture updated.');
+              setTimeout(() => setProfileSuccess(null), 3500);
+            } catch (postErr) {
+              setProfileError(postErr instanceof Error ? postErr.message : 'Failed to upload photo');
+            } finally {
+              setUploadingAvatar(false);
+            }
+          }, 'image/jpeg', 0.85);
         } catch (err) {
           setProfileError(err instanceof Error ? err.message : 'Failed to update photo');
-        } finally {
           setUploadingAvatar(false);
         }
       };
@@ -172,15 +198,14 @@ export default function SettingsPage() {
     setProfileError(null);
 
     try {
-      const { data, error } = await supabase.auth.updateUser({
-        data: {
-          avatar_url: null,
-        },
-      });
+      const res = await fetch('/api/user/avatar', { method: 'DELETE' });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || 'Failed to remove photo');
+      }
 
-      if (error) throw error;
-      if (data.user) {
-        setUser(data.user);
+      if (result.user) {
+        setUser(result.user);
       }
       setProfileSuccess('Profile picture removed.');
       setTimeout(() => setProfileSuccess(null), 3500);
@@ -229,7 +254,8 @@ export default function SettingsPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+  const rawAvatar = user?.user_metadata?.avatar_url as string | undefined;
+  const avatarUrl = rawAvatar?.startsWith('data:') ? undefined : rawAvatar;
   const initials = displayName
     ? displayName.slice(0, 2).toUpperCase()
     : user?.email

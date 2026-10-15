@@ -49,7 +49,8 @@ export default function AuthButton({ user }: AuthButtonProps) {
     'you';
 
   const initials = displayName.slice(0, 2).toUpperCase();
-  const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
+  const rawAvatar = user.user_metadata?.avatar_url as string | undefined;
+  const avatarUrl = rawAvatar?.startsWith('data:') ? undefined : rawAvatar;
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
